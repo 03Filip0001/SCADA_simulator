@@ -1,0 +1,36 @@
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\bin\Debug\PLCSimulator.dll
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\bin\Debug\PLCSimulator.pdb
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.csprojAssemblyReference.cache
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.csproj.CoreCompileInputs.cache
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.dll
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.pdb
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\bin\Debug\PLCSimulator.dll.config
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.dll
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.SqlServer.dll
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.xml
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.SqlServer.xml
+C:\Users\savan\OneDrive\Desktop\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.csproj.CopyComplete
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\PLCSimulator.dll.config
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\PLCSimulator.dll
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\PLCSimulator.pdb
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.dll
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.SqlServer.dll
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.xml
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.SqlServer.xml
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.csproj.AssemblyReference.cache
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.csproj.CoreCompileInputs.cache
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.csproj.CopyComplete
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.dll
+D:\Drugi semestar\Projektovanje softvera nadzorno upravljackih uredjaja\PSNUS materijal\PSNUSproject\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.pdb
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\PLCSimulator.dll.config
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\PLCSimulator.dll
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\PLCSimulator.pdb
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.dll
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.SqlServer.dll
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.xml
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\bin\Debug\EntityFramework.SqlServer.xml
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.csproj.AssemblyReference.cache
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.csproj.CoreCompileInputs.cache
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\obj\Debug\PLCSimul.7DFBA356.Up2Date
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.dll
+C:\Users\zaric\OneDrive\Documents\02-PSNUSU\Vezbe2026\PSNUSproject\PSNUSproject\PSNUSproject\PLCSimulator\obj\Debug\PLCSimulator.pdb

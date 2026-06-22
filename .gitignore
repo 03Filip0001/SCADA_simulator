@@ -1,0 +1,15 @@
+## Zaobilazi kompajliran kod
+[Db]in/
+[Ob]j/
+
+## Visual Studio privremeni fajlovi i keš
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## NuGet paketi
+packages/
+*.nuget.props
+*.nuget.targets
