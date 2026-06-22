@@ -15,6 +15,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using DataConcentrator;
+using DataConcentrator.Model;
 using PLCSimulator;
 
 namespace ScadaGUI
@@ -24,9 +25,16 @@ namespace ScadaGUI
     /// </summary>
     public partial class MainWindow : Window
     {
-    public MainWindow()
+        public AnalogInput TestanalogInput { get; set; }
+
+        public MainWindow()
         {
             InitializeComponent();
+
+            TestanalogInput = new AnalogInput();
+            TestanalogInput.Address = "omg_addr";
+            TestanalogInput.Type = Tag_Type.AI;
+            TestanalogInput.Name = "Test";
 
             //foreach (AnalogInput ai in ...)
             //{
@@ -34,6 +42,7 @@ namespace ScadaGUI
             //    ai.StartScan();
             //}
 
+            this.DataContext = this;
         }
 
 

@@ -9,6 +9,16 @@
         Closing="Window_Closing">
     <Grid>
 
+        <StackPanel DataContext="{Binding TestanalogInput}" Background="#66E0E0" Margin="0,0,0,10" Width="250" Height="100">
+            <TextBlock Text="Senzor" FontSize="14" FontWeight="Bold"/>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Name}" />
+                <TextBlock Text=": " />
+                <TextBlock Text="{Binding Address}" />
+                <TextBlock Text="{Binding Type}" />
+            </StackPanel>
+        </StackPanel>
+
 
         <Button Content="Add tag" Grid.Row="1" HorizontalAlignment="Left" 
                 VerticalAlignment="Bottom" Height="30" Width="150" Margin="15"/>
