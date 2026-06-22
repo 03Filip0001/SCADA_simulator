@@ -10,12 +10,25 @@ namespace DataConcentrator
 {
     // napraviti AnalogInput, AnalogOuput, DigitalInput i 
     // DigitalOutput klase koje nasledjuju Tag klasu
+
+    public enum Tag_Type
+    {
+        AI,
+        AO,
+        DI,
+        DO
+    }
+
     public class Tag : INotifyPropertyChanged
     {
        
         private string name;
 
         private string description;
+
+        private Tag_Type type;
+
+        private string address;
 
 
         #region Properties
@@ -38,6 +51,26 @@ namespace DataConcentrator
             {
                 description = value;
                 OnPropertyChanged("Description");
+            }
+        }
+
+        public Tag_Type Type
+        {
+            get { return  type; }
+            set
+            {
+                type = value;
+                OnPropertyChanged("Type");
+            }
+        }
+
+        public string Address
+        {
+            get { return address; }
+            set
+            {
+                address = value;
+                OnPropertyChanged("Address");
             }
         }
 
