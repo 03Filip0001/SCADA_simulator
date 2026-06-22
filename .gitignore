@@ -2,6 +2,9 @@
 [Db]in/
 [Ob]j/
 
+obj/
+bin/
+
 ## Visual Studio privremeni fajlovi i keš
 .vs/
 *.suo
