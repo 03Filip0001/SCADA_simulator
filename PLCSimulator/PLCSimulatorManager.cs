@@ -32,15 +32,31 @@ namespace PLCSimulator
             // AI
             addressValues.Add("ADDR001", 0);
 
+            addressValues.Add("ADDR002", 0);
+            addressValues.Add("ADDR003", 0);
+            addressValues.Add("ADDR004", 0);
+
             // AO
             addressValues.Add("ADDR005", 0);
+
+            addressValues.Add("ADDR006", 0);
+            addressValues.Add("ADDR007", 0);
+            addressValues.Add("ADDR008", 0);
 
             // DI
             addressValues.Add("ADDR009", 0);
 
+            addressValues.Add("ADDR011", 0);
+            addressValues.Add("ADDR012", 0);
+            addressValues.Add("ADDR013", 0);
+
             // DO
             addressValues.Add("ADDR010", 0);
- 
+
+            addressValues.Add("ADDR014", 0);
+            addressValues.Add("ADDR015", 0);
+            addressValues.Add("ADDR016", 0);
+
         }
 
         public void StartPLCSimulator()
