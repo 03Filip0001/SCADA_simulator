@@ -4,32 +4,26 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using PLCSimulator;
+
+using Contracts;
 
 namespace DataConcentrator
 {
     public class PLC
     {
-        public static PLCSimulatorManager instance;
+        private readonly IPLCSimulatorManager _plc;
 
         public static Dictionary<string, Thread> tagThreads = new Dictionary<string, Thread>();
 
-        public static PLCSimulatorManager Instance
+        public PLC(IPLCSimulatorManager plc)
         {
-            get
-            {
-                if (instance == null)
-                {
-                    instance = new PLCSimulatorManager();
-                    instance.StartPLCSimulator();
-                }
-                return instance;
-            }
+            _plc = plc ?? throw new ArgumentNullException(nameof(plc));
+            _plc.StartPLCSimulator();
         }
 
         public void StopSimulator()
         {
-            instance.Abort();
+            _plc.Abort();
         }
          
     }

@@ -14,9 +14,8 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-using DataConcentrator;
-using DataConcentrator.Model;
-using PLCSimulator;
+
+using Contracts;
 
 namespace ScadaGUI
 {
@@ -25,13 +24,13 @@ namespace ScadaGUI
     /// </summary>
     public partial class MainWindow : Window
     {
-        public AnalogInput TestanalogInput { get; set; }
+        public IAnalogInput TestanalogInput { get; set; }
 
-        public MainWindow()
+        public MainWindow(ITagBuilder builder)
         {
             InitializeComponent();
 
-            TestanalogInput = new AnalogInput();
+            TestanalogInput = builder.CreateAnalogInput("ADDR001");
             TestanalogInput.Address = "omg_addr";
             TestanalogInput.Type = Tag_Type.AI;
             TestanalogInput.Name = "Test";

@@ -4,9 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Contracts;
+
 namespace DataConcentrator.Model
 {
-    public class AnalogInput : Tag, InputCommon, AnalogCommon
+    public class AnalogInput : Tag, IAnalogInput
     {
         // Input common interface
         public double ScanTime { get; set; }
@@ -17,9 +19,12 @@ namespace DataConcentrator.Model
         public double HighLimit { get; set; }
         public string Units { get; set; }
 
-        // Analog input
+        // Analog input interface
         public double Deadband { get; set; }
         // DODAJ HISTEREZIS
         // DODAJ ALARMS
+
+
+        public AnalogInput(string address) { }
     }
 }

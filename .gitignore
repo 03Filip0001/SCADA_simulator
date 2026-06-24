@@ -7,6 +7,7 @@ bin/
 
 ## Visual Studio privremeni fajlovi i keš
 .vs/
+.vscode/
 *.suo
 *.user
 *.userosscache

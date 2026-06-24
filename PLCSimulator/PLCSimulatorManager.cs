@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Contracts;
+
 namespace PLCSimulator
 {
     /// <summary>
@@ -15,7 +17,7 @@ namespace PLCSimulator
     /// 1 x DIGITAL INPUT: ADDR009, ADDR0011-ADDR0013
     /// 1 x DIGITAL OUTPUT: ADDR010, ADDR0014-ADDR0016
     /// </summary>
-    public class PLCSimulatorManager
+    public class PLCSimulatorManager : IPLCSimulatorManager
     {
         private Dictionary<string, double> addressValues;
         private object locker = new object();

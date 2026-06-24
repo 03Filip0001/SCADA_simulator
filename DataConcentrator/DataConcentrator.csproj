@@ -53,22 +53,23 @@
   <ItemGroup>
     <Compile Include="ContextClass.cs" />
     <Compile Include="Model\AnalogInput.cs" />
-    <Compile Include="Model\AnalogCommon.cs" />
-    <Compile Include="Model\InputCommon.cs" />
-    <Compile Include="Model\OutputCommon.cs" />
+    <Compile Include="Model\AnalogOutput.cs" />
+    <Compile Include="Model\DigitalInput.cs" />
+    <Compile Include="Model\DigitalOutput.cs" />
+    <Compile Include="Model\TagBuilder.cs" />
     <Compile Include="PLC.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Model\Tag.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\PLCSimulator\PLCSimulator.csproj">
-      <Project>{dc33bd88-1c29-4d05-8bb6-c41323290719}</Project>
-      <Name>PLCSimulator</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="App.config" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Contracts\Contracts.csproj">
+      <Project>{361d1a9c-ff9a-4a37-9bdd-b870151d5c02}</Project>
+      <Name>Contracts</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

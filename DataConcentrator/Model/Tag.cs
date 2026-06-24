@@ -6,18 +6,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Contracts;
+
 namespace DataConcentrator
 {
     // napraviti AnalogInput, AnalogOuput, DigitalInput i 
     // DigitalOutput klase koje nasledjuju Tag klasu
-
-    public enum Tag_Type
-    {
-        AI,
-        AO,
-        DI,
-        DO
-    }
 
     public class Tag : INotifyPropertyChanged
     {

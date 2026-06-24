@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Contracts;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,8 +7,8 @@ using System.Threading.Tasks;
 
 namespace DataConcentrator.Model
 {
-    internal interface OutputCommon
+    internal class DigitalInput : Tag, IDigitalInput
     {
-        double InitialValue { get; set; }
+        public DigitalInput(string address) { }
     }
 }

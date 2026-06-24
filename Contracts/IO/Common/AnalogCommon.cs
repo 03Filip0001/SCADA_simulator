@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DataConcentrator.Model
+namespace Contracts
 {
-    internal interface AnalogCommon
+    public interface IAnalogCommon
     {
         double LowLimit { get; set; }
         double HighLimit { get; set; }
