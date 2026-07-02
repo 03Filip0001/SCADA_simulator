@@ -82,6 +82,7 @@ namespace DataConcentrator
 
         private void ScanInput(ITag tag)
         {
+            // Branch once to the appropriate loop for the concrete tag type
             if (tag is AnalogInput analogInput)
             {
                 while (analogInput.ScanOn)
