@@ -54,6 +54,12 @@ namespace ScadaGUI
             this.DataContext = this;
         }
 
+        private void Button_AddTag(object sender, RoutedEventArgs e)
+        {
+            AddWindow addwindow = new AddWindow();
+            addwindow.ShowDialog();
+        }
+
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {

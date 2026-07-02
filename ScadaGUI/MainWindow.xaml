@@ -25,7 +25,8 @@
                       AlternatingRowBackground="#F2F2F2"/>
 
             <Button Content="Add tag" HorizontalAlignment="Left" Grid.Row="1"
-                    VerticalAlignment="Bottom" Height="30" Width="150" Margin="15"/>
+                    VerticalAlignment="Bottom" Height="30" Width="150" Margin="15"
+                    Click="Button_AddTag"/>
         </Grid>
 
         <Grid Grid.Column="1">
