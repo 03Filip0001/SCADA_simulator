@@ -52,7 +52,7 @@ namespace DataConcentrator
             {
                 if (!scanThreads.ContainsKey(analogInput.Address))
                 {
-                    var thread = new Thread(() => ScanAnalogInput(analogInput))
+                    var thread = new Thread(() => ScanInput(analogInput))
                     {
                         IsBackground = true,
                         Name = $"AnalogScan-{analogInput.Address}"
@@ -62,26 +62,64 @@ namespace DataConcentrator
                     thread.Start();
                 }
             }
+            else if (tag is DigitalInput digitalInput)
+            {
+                if (!scanThreads.ContainsKey(digitalInput.Address))
+                {
+                    var thread = new Thread(() => ScanInput(digitalInput))
+                    {
+                        IsBackground = true,
+                        Name = $"DigitalScan-{digitalInput.Address}"
+                    };
+
+                    scanThreads[digitalInput.Address] = thread;
+                    thread.Start();
+                }
+            }
 
             return true;
         }
 
-        private void ScanAnalogInput(AnalogInput analogInput)
+        private void ScanInput(ITag tag)
         {
-            while (analogInput.ScanOn)
+            if (tag is AnalogInput analogInput)
             {
-                try
+                while (analogInput.ScanOn)
                 {
-                    double value = _plc.GetAnalogValue(analogInput.Address);
-                    analogInput.UpdateValue(value);
-                }
-                catch
-                {
-                    // failure reading value should not crash the scanner thread
+                    try
+                    {
+                        double value = _plc.GetAnalogValue(analogInput.Address);
+                        analogInput.UpdateValue(value);
+                    }
+                    catch
+                    {
+                        // failure reading value should not crash the scanner thread
+                    }
+
+                    var delaySeconds = Math.Max(0.2, analogInput.ScanTime);
+                    Thread.Sleep(TimeSpan.FromSeconds(delaySeconds));
                 }
 
-                var delaySeconds = Math.Max(0.2, analogInput.ScanTime);
-                Thread.Sleep(TimeSpan.FromSeconds(delaySeconds));
+                return;
+            }
+
+            if (tag is DigitalInput digitalInput)
+            {
+                while (digitalInput.ScanOn)
+                {
+                    try
+                    {
+                        double value = _plc.GetAnalogValue(digitalInput.Address);
+                        digitalInput.UpdateState(value != 0);
+                    }
+                    catch
+                    {
+                        // failure reading value should not crash the scanner thread
+                    }
+
+                    var delaySeconds = Math.Max(0.2, digitalInput.ScanTime);
+                    Thread.Sleep(TimeSpan.FromSeconds(delaySeconds));
+                }
             }
         }
     }
