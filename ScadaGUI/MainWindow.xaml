@@ -9,7 +9,35 @@
         Closing="Window_Closing">
     <Grid>
 
-        <StackPanel DataContext="{Binding TestanalogInput}" Background="#66E0E0" Margin="0,0,0,10" Width="250" Height="100">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+
+        <Grid Grid.Column="0">
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="60"/>
+            </Grid.RowDefinitions>
+
+            <DataGrid ItemsSource="{Binding IOElements}"
+                      AlternatingRowBackground="#F2F2F2"/>
+
+            <Button Content="Add tag" HorizontalAlignment="Left" Grid.Row="1"
+                    VerticalAlignment="Bottom" Height="30" Width="150" Margin="15"/>
+        </Grid>
+
+        <Grid Grid.Column="1">
+
+            <Grid.RowDefinitions>
+                <RowDefinition/>
+                <RowDefinition/>
+            </Grid.RowDefinitions>
+            
+        </Grid>
+
+        <StackPanel Grid.Column="1" DataContext="{Binding TestanalogInput}" Background="#66E0E0" Margin="0,0,0,10" Width="250" Height="100">
             <TextBlock Text="Senzor" FontSize="14" FontWeight="Bold"/>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="{Binding Name}" />
@@ -18,11 +46,6 @@
                 <TextBlock Text="{Binding Type}" />
             </StackPanel>
         </StackPanel>
-
-
-        <Button Content="Add tag" Grid.Row="1" HorizontalAlignment="Left" 
-                VerticalAlignment="Bottom" Height="30" Width="150" Margin="15"/>
-
     </Grid>
 
 </Window>

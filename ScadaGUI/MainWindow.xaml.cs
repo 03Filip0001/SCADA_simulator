@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Data.Entity;
 using System.Linq;
 using System.Text;
@@ -25,15 +26,24 @@ namespace ScadaGUI
     public partial class MainWindow : Window
     {
         public IAnalogInput TestanalogInput { get; set; }
+        public ITag tag { get; set; }
+
+        public ObservableCollection<ITag> IOElements { get; set; }
 
         public MainWindow(ITagBuilder builder)
         {
             InitializeComponent();
+            IOElements = new ObservableCollection<ITag>();
 
             TestanalogInput = builder.CreateAnalogInput("ADDR001");
-            TestanalogInput.Address = "omg_addr";
+            tag = builder.CreateDigitalInput("ADDR005");
+            tag.Type = Tag_Type.DI;
+
             TestanalogInput.Type = Tag_Type.AI;
             TestanalogInput.Name = "Test";
+
+            IOElements.Add(TestanalogInput);
+            IOElements.Add(tag);
 
             //foreach (AnalogInput ai in ...)
             //{
