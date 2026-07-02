@@ -13,11 +13,53 @@
             <RowDefinition Height="60"/>
         </Grid.RowDefinitions>
 
-        <ComboBox Width="350" Height="35" x:Name="Dropdown"></ComboBox>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="70"/>
+                <RowDefinition/>
+            </Grid.RowDefinitions>
+            
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="15">
+                <TextBlock Text="Odaberite tip taga koji se dodaje: " TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <ComboBox Width="150" Height="25" x:Name="Dropdown" SelectionChanged="Dropdown_Changed"/>
+            </StackPanel>
 
-        <Button Grid.Row="1" Content="Create" Width="135" Height="35"  Margin="15,0,0,0" HorizontalAlignment="Left"/>
+            <StackPanel x:Name="panelIO" Visibility="Visible" Grid.Row="1">
 
-        <Button Grid.Row="1" Content="Cancel" Width="135" Height="35" Margin="0,0, 15,0" HorizontalAlignment="Right"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Column="0" Margin="15" Text="Ime taga: "/>
+                    <TextBox Grid.Column="1" Width="200" Margin="15" HorizontalAlignment="Left"/>
+
+                    <TextBlock Grid.Row="1" Margin="15" Text="Adresa taga: "/>
+                    <TextBox Grid.Row="1"  Grid.Column="1" Margin="15" Width="200" HorizontalAlignment="Left"/>
+
+                    <TextBlock Grid.Row="2" Margin="15" Text="Opis taga: "/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Margin="15" Width="200" HorizontalAlignment="Left"/>
+
+                </Grid>
+            </StackPanel>
+
+            <StackPanel x:Name="panelAlarm" Visibility="Collapsed" Grid.Row="1">
+                <TextBlock Text="panel za Alarme"/>
+            </StackPanel>
+        </Grid>
+
+        <Button Grid.Row="1" Content="Create" Width="135" Height="35"  Margin="15,0,0,0" HorizontalAlignment="Left"
+                Click="Button_Create"/>
+
+        <Button Grid.Row="1" Content="Cancel" Width="135" Height="35" Margin="0,0, 15,0" HorizontalAlignment="Right"
+                Click="Button_Cancel"/>
 
     </Grid>
 </Window>

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data.Entity;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -27,6 +28,7 @@ namespace ScadaGUI
     {
         public IAnalogInput TestanalogInput { get; set; }
         public ITag tag { get; set; }
+        public ITagBuilder tagBuilder { get; set; }
 
         public ObservableCollection<ITag> IOElements { get; set; }
 
@@ -34,6 +36,7 @@ namespace ScadaGUI
         {
             InitializeComponent();
             IOElements = new ObservableCollection<ITag>();
+            tagBuilder = builder;
 
             TestanalogInput = builder.CreateAnalogInput("ADDR001");
             tag = builder.CreateDigitalInput("ADDR005");
@@ -58,6 +61,17 @@ namespace ScadaGUI
         {
             AddWindow addwindow = new AddWindow();
             addwindow.ShowDialog();
+
+            if (addwindow.DialogResult.GetValueOrDefault())
+            {
+                Debug.WriteLine(addwindow.DialogResultType);
+
+                tag = tagBuilder.CreateDigitalOutput("HAHA");
+                tag.Name = "Novi Tag";
+                tag.Type = Tag_Type.DO;
+
+                IOElements.Add(tag);
+            }
         }
 
 
