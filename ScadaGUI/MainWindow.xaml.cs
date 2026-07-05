@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Data.Entity;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -25,15 +27,26 @@ namespace ScadaGUI
     public partial class MainWindow : Window
     {
         public IAnalogInput TestanalogInput { get; set; }
+        public ITag tag { get; set; }
+        public ITagBuilder tagBuilder { get; set; }
+
+        public ObservableCollection<ITag> IOElements { get; set; }
 
         public MainWindow(ITagBuilder builder)
         {
             InitializeComponent();
+            IOElements = new ObservableCollection<ITag>();
+            tagBuilder = builder;
 
             TestanalogInput = builder.CreateAnalogInput("ADDR001");
-            TestanalogInput.Address = "omg_addr";
+            tag = builder.CreateDigitalInput("ADDR005");
+            tag.Type = Tag_Type.DI;
+
             TestanalogInput.Type = Tag_Type.AI;
             TestanalogInput.Name = "Test";
+
+            IOElements.Add(TestanalogInput);
+            IOElements.Add(tag);
 
             //foreach (AnalogInput ai in ...)
             //{
@@ -42,6 +55,23 @@ namespace ScadaGUI
             //}
 
             this.DataContext = this;
+        }
+
+        private void Button_AddTag(object sender, RoutedEventArgs e)
+        {
+            AddWindow addwindow = new AddWindow();
+            addwindow.ShowDialog();
+
+            if (addwindow.DialogResult.GetValueOrDefault())
+            {
+                Debug.WriteLine(addwindow.DialogResultType);
+
+                tag = tagBuilder.CreateDigitalOutput("HAHA");
+                tag.Name = "Novi Tag";
+                tag.Type = Tag_Type.DO;
+
+                IOElements.Add(tag);
+            }
         }
 
 
