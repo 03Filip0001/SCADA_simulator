@@ -149,12 +149,59 @@ namespace ScadaGUI
 
             if (addwindow.DialogResult.GetValueOrDefault())
             {
-                tag = tagBuilder.CreateDigitalOutput("ADDR_NEW");
-                tag.Name = "New Tag";
-                tag.Type = Tag_Type.DO;
+                string type = addwindow.DialogResultType;
+                string name = addwindow.DialogResultName;
+                string address = addwindow.DialogResultAddress;
+                string description = addwindow.DialogResultDescription;
 
-                IOElements.Add(tag);
-                FilteredIOElements.Refresh();
+                ITag newTag = null;
+                Tag_Type tagType = Tag_Type.AI;
+
+                // Određujem tip taga
+                if (Enum.TryParse(type, out tagType))
+                {
+                    switch (tagType)
+                    {
+                        case Tag_Type.AI:
+                            newTag = tagBuilder.CreateAnalogInput(address ?? "NEW_ADDR");
+                            break;
+                        case Tag_Type.AO:
+                            newTag = tagBuilder.CreateAnalogOutput(address ?? "NEW_ADDR");
+                            break;
+                        case Tag_Type.DI:
+                            newTag = tagBuilder.CreateDigitalInput(address ?? "NEW_ADDR");
+                            break;
+                        case Tag_Type.DO:
+                            newTag = tagBuilder.CreateDigitalOutput(address ?? "NEW_ADDR");
+                            break;
+                    }
+
+                    if (newTag != null)
+                    {
+                        // Postavljam svojstva
+                        newTag.Name = name ?? "New Tag";
+                        newTag.Address = address ?? "NEW_ADDR";
+                        newTag.Description = description ?? "";
+                        newTag.Type = tagType;
+
+                        if (newTag is AnalogInput analogInput && addwindow.DialogResultHasAlarmSettings)
+                        {
+                            analogInput.LowLimit = addwindow.DialogResultLowLimit;
+                            analogInput.HighLimit = addwindow.DialogResultHighLimit;
+                            analogInput.AlarmMessage = addwindow.DialogResultAlarmMessage ?? string.Empty;
+                        }
+
+                        // Dodajem tag u kolekciju
+                        IOElements.Add(newTag);
+                        FilteredIOElements.Refresh();
+
+                        // Ako je ulazni tag, dodajem ga u PLC za skeniranje
+                        if (tagType == Tag_Type.AI || tagType == Tag_Type.DI)
+                        {
+                            _plc.AddInput(newTag);
+                        }
+                    }
+                }
             }
         }
 

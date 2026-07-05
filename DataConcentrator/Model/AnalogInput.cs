@@ -54,7 +54,7 @@ namespace DataConcentrator.Model
         public string AlarmMessage
         {
             get => alarmMessage;
-            private set
+            set
             {
                 if (alarmMessage != value)
                 {
@@ -64,10 +64,10 @@ namespace DataConcentrator.Model
             }
         }
 
-        public double CurrentValue
+        public override double CurrentValue
         {
             get => currentValue;
-            private set
+            protected set
             {
                 if (Math.Abs(currentValue - value) > double.Epsilon)
                 {

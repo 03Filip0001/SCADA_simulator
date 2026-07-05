@@ -13,6 +13,7 @@ namespace DataConcentrator
     {
         private readonly IPLCSimulatorManager _plc;
         private readonly Dictionary<string, Thread> scanThreads = new Dictionary<string, Thread>();
+        private readonly Dictionary<string, List<ITag>> scannedTagsByAddress = new Dictionary<string, List<ITag>>();
         private bool _running = true;
 
         public event Action<AlarmInfo> AlarmRaised;
@@ -78,78 +79,85 @@ namespace DataConcentrator
             if (tag is AnalogInput analogInput)
             {
                 analogInput.AlarmRaised += OnAlarmRaised;
-
-                if (!scanThreads.ContainsKey(analogInput.Address))
-                {
-                    var thread = new Thread(() => ScanInput(analogInput))
-                    {
-                        IsBackground = true,
-                        Name = $"AnalogScan-{analogInput.Address}"
-                    };
-
-                    scanThreads[analogInput.Address] = thread;
-                    thread.Start();
-                }
             }
-            else if (tag is DigitalInput digitalInput)
-            {
-                if (!scanThreads.ContainsKey(digitalInput.Address))
-                {
-                    var thread = new Thread(() => ScanInput(digitalInput))
-                    {
-                        IsBackground = true,
-                        Name = $"DigitalScan-{digitalInput.Address}"
-                    };
 
-                    scanThreads[digitalInput.Address] = thread;
-                    thread.Start();
-                }
+            var address = tag.Address ?? string.Empty;
+            if (!scannedTagsByAddress.TryGetValue(address, out var tagList))
+            {
+                tagList = new List<ITag>();
+                scannedTagsByAddress[address] = tagList;
+            }
+
+            tagList.Add(tag);
+
+            if (!scanThreads.ContainsKey(address))
+            {
+                var thread = new Thread(() => ScanAddress(address))
+                {
+                    IsBackground = true,
+                    Name = $"Scan-{address}"
+                };
+
+                scanThreads[address] = thread;
+                thread.Start();
             }
 
             return true;
         }
 
-        private void ScanInput(ITag tag)
+        private void ScanAddress(string address)
         {
-            // Branch once to the appropriate loop for the concrete tag type
-            if (tag is AnalogInput analogInput)
+            while (_running)
             {
-                while (analogInput.ScanOn)
+                if (!scannedTagsByAddress.TryGetValue(address, out var tags))
                 {
-                    try
-                    {
-                        double value = _plc.GetAnalogValue(analogInput.Address);
-                        analogInput.UpdateValue(value);
-                    }
-                    catch
-                    {
-                        // failure reading value should not crash the scanner thread
-                    }
-
-                    var delaySeconds = Math.Max(0.2, analogInput.ScanTime);
-                    Thread.Sleep(TimeSpan.FromSeconds(delaySeconds));
+                    break;
                 }
 
-                return;
-            }
-
-            if (tag is DigitalInput digitalInput)
-            {
-                while (digitalInput.ScanOn)
+                if (tags.Count == 0)
                 {
-                    try
-                    {
-                        double value = _plc.GetAnalogValue(digitalInput.Address);
-                        digitalInput.UpdateState(value != 0);
-                    }
-                    catch
-                    {
-                        // failure reading value should not crash the scanner thread
-                    }
-
-                    var delaySeconds = Math.Max(0.2, digitalInput.ScanTime);
-                    Thread.Sleep(TimeSpan.FromSeconds(delaySeconds));
+                    break;
                 }
+
+                double? analogValue = null;
+                try
+                {
+                    analogValue = _plc.GetAnalogValue(address);
+                }
+                catch
+                {
+                    // failure reading value should not crash the scanner thread
+                }
+
+                foreach (var tag in tags.ToList())
+                {
+                    if (tag is AnalogInput analogInput)
+                    {
+                        if (!analogInput.ScanOn)
+                        {
+                            continue;
+                        }
+
+                        if (analogValue.HasValue)
+                        {
+                            analogInput.UpdateValue(analogValue.Value);
+                        }
+                    }
+                    else if (tag is DigitalInput digitalInput)
+                    {
+                        if (!digitalInput.ScanOn)
+                        {
+                            continue;
+                        }
+
+                        if (analogValue.HasValue)
+                        {
+                            digitalInput.UpdateState(analogValue.Value != 0);
+                        }
+                    }
+                }
+
+                Thread.Sleep(TimeSpan.FromSeconds(0.5));
             }
         }
 

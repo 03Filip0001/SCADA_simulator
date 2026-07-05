@@ -68,6 +68,12 @@ namespace DataConcentrator
             }
         }
 
+        public virtual double CurrentValue
+        {
+            get { return double.NaN; }
+            protected set { }
+        }
+
         #endregion
 
         #region INotifyPropertyChanged Members

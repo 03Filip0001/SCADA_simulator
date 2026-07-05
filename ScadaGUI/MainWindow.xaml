@@ -32,10 +32,18 @@
             <DataGrid Grid.Row="1"
                       ItemsSource="{Binding FilteredIOElements}"
                       AlternatingRowBackground="#F2F2F2"
-                      AutoGenerateColumns="True"
+                      AutoGenerateColumns="False"
                       SelectedItem="{Binding SelectedTag, Mode=TwoWay}"
                       IsReadOnly="True"
-                      Margin="0,0,0,10"/>
+                      Margin="0,0,0,10">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="120"/>
+                    <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="100"/>
+                    <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="70"/>
+                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="150"/>
+                    <DataGridTextColumn Header="Current Value" Binding="{Binding CurrentValue, StringFormat='F2'}" Width="100"/>
+                </DataGrid.Columns>
+            </DataGrid>
 
             <Button Content="Add tag" HorizontalAlignment="Left" Grid.Row="2"
                     VerticalAlignment="Bottom" Height="30" Width="150" Margin="0,0,0,0"
