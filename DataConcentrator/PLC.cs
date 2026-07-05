@@ -13,6 +13,7 @@ namespace DataConcentrator
     {
         private readonly IPLCSimulatorManager _plc;
         private readonly Dictionary<string, Thread> scanThreads = new Dictionary<string, Thread>();
+        private bool _running = true;
 
         public event Action<AlarmInfo> AlarmRaised;
 
@@ -27,18 +28,42 @@ namespace DataConcentrator
 
         public void StopSimulator()
         {
+            _running = false;
+
+            // Give threads time to exit gracefully
+            foreach (var tag in IOElements)
+            {
+                if (tag is AnalogInput analogInput)
+                {
+                    analogInput.StopScan();
+                }
+                else if (tag is DigitalInput digitalInput)
+                {
+                    digitalInput.StopScan();
+                }
+            }
+
+            // Wait for scan threads to finish
             foreach (var thread in scanThreads.Values)
             {
                 try
                 {
-                    thread?.Abort();
+                    thread?.Join(TimeSpan.FromSeconds(2));
                 }
                 catch
                 {
-                    // ignore abort exceptions
+                    // ignore join exceptions
                 }
             }
-            _plc.Abort();
+
+            try
+            {
+                _plc.StopPLCSimulator();
+            }
+            catch
+            {
+                // ignore simulator stop exceptions
+            }
         }
 
         public bool AddInput(ITag tag)

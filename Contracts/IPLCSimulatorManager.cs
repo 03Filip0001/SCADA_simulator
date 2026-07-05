@@ -9,9 +9,9 @@ namespace Contracts
     public interface IPLCSimulatorManager
     {
         void StartPLCSimulator();
+        void StopPLCSimulator();
         double GetAnalogValue(string address);
         void SetAnalogValue(string address, double value);
         void SetDigitalValue(string address, double value);
-        void Abort();
     }
 }

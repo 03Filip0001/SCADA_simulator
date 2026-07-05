@@ -23,6 +23,7 @@ namespace PLCSimulator
         private object locker = new object();
         private Thread t1;
         private Thread t2;
+        private bool _running = true;
         
         public PLCSimulatorManager()
         {
@@ -70,9 +71,8 @@ namespace PLCSimulator
 
         private void GeneratingAnalogInputs()
         {
-            while (true)
+            while (_running)
             {
-                
                 Thread.Sleep(100);
 
                 lock (locker)
@@ -87,7 +87,7 @@ namespace PLCSimulator
 
         private void GeneratingDigitalInputs()
         {
-            while (true)
+            while (_running)
             {
                 Thread.Sleep(1000);
 
@@ -169,10 +169,18 @@ namespace PLCSimulator
             return minValue + (next * (maxValue - minValue));
         }
 
-        public void Abort()
+        public void StopPLCSimulator()
         {
-            t1.Abort();
-            t2.Abort();
+            _running = false;
+            try
+            {
+                t1?.Join(TimeSpan.FromSeconds(2));
+                t2?.Join(TimeSpan.FromSeconds(2));
+            }
+            catch
+            {
+                // ignore join exceptions
+            }
         }
     }
 }
