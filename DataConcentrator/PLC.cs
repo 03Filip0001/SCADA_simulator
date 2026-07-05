@@ -14,6 +14,8 @@ namespace DataConcentrator
         private readonly IPLCSimulatorManager _plc;
         private readonly Dictionary<string, Thread> scanThreads = new Dictionary<string, Thread>();
 
+        public event Action<AlarmInfo> AlarmRaised;
+
         public List<ITag> IOElements { get; set; }
 
         public PLC(IPLCSimulatorManager plc)
@@ -50,6 +52,8 @@ namespace DataConcentrator
 
             if (tag is AnalogInput analogInput)
             {
+                analogInput.AlarmRaised += OnAlarmRaised;
+
                 if (!scanThreads.ContainsKey(analogInput.Address))
                 {
                     var thread = new Thread(() => ScanInput(analogInput))
@@ -122,6 +126,11 @@ namespace DataConcentrator
                     Thread.Sleep(TimeSpan.FromSeconds(delaySeconds));
                 }
             }
+        }
+
+        private void OnAlarmRaised(AnalogInput source, AlarmInfo alarmInfo)
+        {
+            AlarmRaised?.Invoke(alarmInfo);
         }
     }
 

@@ -10,5 +10,7 @@ namespace Contracts
     {
         double ScanTime { get; set; }
         bool ScanOn { get; set; }
+        void StartScan();
+        void StopScan();
     }
 }
