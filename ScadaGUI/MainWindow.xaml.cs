@@ -209,7 +209,31 @@ namespace ScadaGUI
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            // Add shutdown cleanup here if needed, e.g. stop PLC threads.
+            // Stop all scanning threads
+            foreach (var tag in IOElements)
+            {
+                if (tag is IInputCommon input)
+                {
+                    input.StopScan();
+                }
+            }
+
+            // Stop PLC simulator
+            if (_plc != null)
+            {
+                _plc.StopSimulator();
+            }
+
+            // Close database context if needed
+            try
+            {
+                ContextClass.Instance.SaveChanges();
+                ContextClass.Instance.Dispose();
+            }
+            catch
+            {
+                // Ignore any database errors during shutdown
+            }
         }
     }
 }
