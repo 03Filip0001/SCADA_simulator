@@ -73,11 +73,19 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="HistoryWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Compile Include="AddWindow.xaml.cs">
       <DependentUpon>AddWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="HistoryWindow.xaml.cs">
+      <DependentUpon>HistoryWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
@@ -115,6 +123,14 @@
     <ProjectReference Include="..\Contracts\Contracts.csproj">
       <Project>{361d1a9c-ff9a-4a37-9bdd-b870151d5c02}</Project>
       <Name>Contracts</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\DataConcentrator\DataConcentrator.csproj">
+      <Project>{024884F0-496F-4426-A0CE-45FF39AE24A6}</Project>
+      <Name>DataConcentrator</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\PLCSimulator\PLCSimulator.csproj">
+      <Project>{DC33BD88-1C29-4D05-8BB6-C41323290719}</Project>
+      <Name>PLCSimulator</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

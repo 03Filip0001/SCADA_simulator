@@ -5,48 +5,75 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ScadaGUI"
         mc:Ignorable="d"
-        Title="SCADA Application" Height="450" Width="800" 
+        Title="SCADA Application" Height="550" Width="1000"
         Closing="Window_Closing">
-    <Grid>
-
+    <Grid Margin="10">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition/>
-            <ColumnDefinition/>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="1.2*"/>
         </Grid.ColumnDefinitions>
 
         <Grid Grid.Column="0">
-
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="60"/>
             </Grid.RowDefinitions>
 
-            <DataGrid ItemsSource="{Binding IOElements}"
-                      AlternatingRowBackground="#F2F2F2"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <TextBox Width="180" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                <ComboBox Width="140" Margin="10,0,0,0"
+                          ItemsSource="{Binding TagFilterOptions}"
+                          SelectedItem="{Binding SelectedTagTypeFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                <Button Content="Open History" Width="120" Margin="10,0,0,0" Click="Button_ShowHistory"/>
+            </StackPanel>
 
-            <Button Content="Add tag" HorizontalAlignment="Left" Grid.Row="1"
-                    VerticalAlignment="Bottom" Height="30" Width="150" Margin="15"
+            <DataGrid Grid.Row="1"
+                      ItemsSource="{Binding FilteredIOElements}"
+                      AlternatingRowBackground="#F2F2F2"
+                      AutoGenerateColumns="True"
+                      SelectedItem="{Binding SelectedTag, Mode=TwoWay}"
+                      IsReadOnly="True"
+                      Margin="0,0,0,10"/>
+
+            <Button Content="Add tag" HorizontalAlignment="Left" Grid.Row="2"
+                    VerticalAlignment="Bottom" Height="30" Width="150" Margin="0,0,0,0"
                     Click="Button_AddTag"/>
         </Grid>
 
-        <Grid Grid.Column="1">
+        <StackPanel Grid.Column="1" Margin="10,0,0,0">
+            <GroupBox Header="Selected Tag" Padding="10" Margin="0,0,0,10">
+                <StackPanel>
+                    <TextBlock Text="Name:" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding SelectedTag.Name}" Margin="0,0,0,10"/>
+                    <TextBlock Text="Address:" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding SelectedTag.Address}" Margin="0,0,0,10"/>
+                    <TextBlock Text="Type:" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding SelectedTag.Type}" Margin="0,0,0,10"/>
+                    <TextBlock Text="Selected tag details will appear here." FontStyle="Italic" Foreground="Gray"/>
+                </StackPanel>
+            </GroupBox>
 
-            <Grid.RowDefinitions>
-                <RowDefinition/>
-                <RowDefinition/>
-            </Grid.RowDefinitions>
-            
-        </Grid>
+            <GroupBox Header="Active Alarms" Padding="10" Margin="0,0,0,10">
+                <DockPanel>
+                    <DataGrid ItemsSource="{Binding ActiveAlarms}"
+                              AutoGenerateColumns="False"
+                              HeadersVisibility="Column"
+                              SelectedItem="{Binding SelectedAlarm, Mode=TwoWay}"
+                              Height="280"
+                              CanUserAddRows="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Tag" Binding="{Binding TagName}" Width="*"/>
+                            <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*"/>
+                            <DataGridTextColumn Header="Time" Binding="{Binding Timestamp}" Width="*"/>
+                            <DataGridTextColumn Header="Ack" Binding="{Binding IsAcknowledged}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </GroupBox>
 
-        <StackPanel Grid.Column="1" DataContext="{Binding TestanalogInput}" Background="#66E0E0" Margin="0,0,0,10" Width="250" Height="100">
-            <TextBlock Text="Senzor" FontSize="14" FontWeight="Bold"/>
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="{Binding Name}" />
-                <TextBlock Text=": " />
-                <TextBlock Text="{Binding Address}" />
-                <TextBlock Text="{Binding Type}" />
-            </StackPanel>
+            <Button Content="Acknowledge Selected Alarm" Width="220" Height="30" HorizontalAlignment="Left" Click="Button_AcknowledgeAlarm"/>
         </StackPanel>
     </Grid>
-
 </Window>

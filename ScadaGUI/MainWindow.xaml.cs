@@ -1,60 +1,145 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Data.Entity;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Windows.Threading;
-
 using Contracts;
+using DataConcentrator;
+using DataConcentrator.Model;
+using PLCSimulator;
 
 namespace ScadaGUI
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
+        private ITag selectedTag;
+        private AlarmInfo selectedAlarm;
+        private string searchText;
+        private string selectedTagTypeFilter;
+
+        private readonly DataConcentrator.PLC _plc;
+
         public IAnalogInput TestanalogInput { get; set; }
         public ITag tag { get; set; }
         public ITagBuilder tagBuilder { get; set; }
-
         public ObservableCollection<ITag> IOElements { get; set; }
+        public ICollectionView FilteredIOElements { get; set; }
+        public ObservableCollection<AlarmInfo> ActiveAlarms { get; set; }
+        public List<string> TagFilterOptions { get; set; }
+
+        public ITag SelectedTag
+        {
+            get => selectedTag;
+            set
+            {
+                if (selectedTag == value) return;
+                selectedTag = value;
+                OnPropertyChanged(nameof(SelectedTag));
+            }
+        }
+
+        public AlarmInfo SelectedAlarm
+        {
+            get => selectedAlarm;
+            set
+            {
+                if (selectedAlarm == value) return;
+                selectedAlarm = value;
+                OnPropertyChanged(nameof(SelectedAlarm));
+            }
+        }
+
+        public string SearchText
+        {
+            get => searchText;
+            set
+            {
+                if (searchText == value) return;
+                searchText = value;
+                OnPropertyChanged(nameof(SearchText));
+                FilteredIOElements?.Refresh();
+            }
+        }
+
+        public string SelectedTagTypeFilter
+        {
+            get => selectedTagTypeFilter;
+            set
+            {
+                if (selectedTagTypeFilter == value) return;
+                selectedTagTypeFilter = value;
+                OnPropertyChanged(nameof(SelectedTagTypeFilter));
+                FilteredIOElements?.Refresh();
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
 
         public MainWindow(ITagBuilder builder)
         {
             InitializeComponent();
+
             IOElements = new ObservableCollection<ITag>();
+            ActiveAlarms = new ObservableCollection<AlarmInfo>();
+            TagFilterOptions = new List<string> { "All", "AI", "AO", "DI", "DO" };
+            SelectedTagTypeFilter = "All";
+
             tagBuilder = builder;
+            _plc = new DataConcentrator.PLC(new PLCSimulatorManager());
 
             TestanalogInput = builder.CreateAnalogInput("ADDR001");
-            tag = builder.CreateDigitalInput("ADDR005");
-            tag.Type = Tag_Type.DI;
-
+            TestanalogInput.Name = "Analog Tag 1";
             TestanalogInput.Type = Tag_Type.AI;
-            TestanalogInput.Name = "Test";
+
+            tag = builder.CreateDigitalInput("ADDR009");
+            tag.Name = "Digital Tag 1";
+            tag.Type = Tag_Type.DI;
 
             IOElements.Add(TestanalogInput);
             IOElements.Add(tag);
 
-            //foreach (AnalogInput ai in ...)
-            //{
-            //    ai.AlarmActivated += OnAlarmActivated;
-            //    ai.StartScan();
-            //}
+            FilteredIOElements = CollectionViewSource.GetDefaultView(IOElements);
+            FilteredIOElements.Filter = FilterTag;
 
-            this.DataContext = this;
+            SelectedTag = IOElements.FirstOrDefault();
+
+            _plc.AlarmRaised += OnAlarmRaised;
+            _plc.AddInput(TestanalogInput);
+            _plc.AddInput(tag);
+
+            DataContext = this;
+        }
+
+        private bool FilterTag(object obj)
+        {
+            if (!(obj is ITag tag))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                var lower = SearchText.ToLowerInvariant();
+                if (!(tag.Name?.ToLowerInvariant().Contains(lower) == true
+                      || tag.Address?.ToLowerInvariant().Contains(lower) == true
+                      || tag.Description?.ToLowerInvariant().Contains(lower) == true))
+                {
+                    return false;
+                }
+            }
+
+            if (SelectedTagTypeFilter == "All")
+            {
+                return true;
+            }
+
+            return tag.Type.ToString() == SelectedTagTypeFilter;
         }
 
         private void Button_AddTag(object sender, RoutedEventArgs e)
@@ -64,51 +149,67 @@ namespace ScadaGUI
 
             if (addwindow.DialogResult.GetValueOrDefault())
             {
-                Debug.WriteLine(addwindow.DialogResultType);
-
-                tag = tagBuilder.CreateDigitalOutput("HAHA");
-                tag.Name = "Novi Tag";
+                tag = tagBuilder.CreateDigitalOutput("ADDR_NEW");
+                tag.Name = "New Tag";
                 tag.Type = Tag_Type.DO;
 
                 IOElements.Add(tag);
+                FilteredIOElements.Refresh();
             }
         }
 
+        private void Button_ShowHistory(object sender, RoutedEventArgs e)
+        {
+            if (SelectedTag == null)
+            {
+                MessageBox.Show("Select a tag first to open its history.", "History", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var historyWindow = new HistoryWindow(SelectedTag);
+            historyWindow.Owner = this;
+            historyWindow.ShowDialog();
+        }
+
+        private void Button_AcknowledgeAlarm(object sender, RoutedEventArgs e)
+        {
+            if (SelectedAlarm == null)
+            {
+                MessageBox.Show("Please select an alarm to acknowledge.", "Acknowledge Alarm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var matchingTag = IOElements.OfType<IAnalogInput>().FirstOrDefault(t => t.Name == SelectedAlarm.TagName);
+            if (matchingTag != null)
+            {
+                matchingTag.AcknowledgeAlarm();
+                SelectedAlarm.IsAcknowledged = true;
+                CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
+            }
+        }
+
+        private void OnAlarmRaised(AlarmInfo alarmInfo)
+        {
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var dbRecord = ContextClass.Instance.AlarmRecords.Find(alarmInfo.Id);
+                if (dbRecord != null)
+                {
+                    alarmInfo.Message = dbRecord.Message;
+                }
+
+                ActiveAlarms.Add(alarmInfo);
+            }));
+        }
+
+        private void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-        //    //abort input threads
-        //    foreach(AnalogInput ai in ContextClass.Instance.AnalogInputs)
-        //    {
-        //        ai.StopScan();
-        //    }
-        //    foreach(DigitalInput di in ContextClass.Instance.DigitalInputs)
-        //    {
-        //        di.StopScan();
-        //    }
-
-        //    //abort simulator threads
-        //    if (PLC.Instance != null)
-        //    {
-        //        PLC.Instance.Abort();
-        //    }
-
-        //    ContextClass.Instance.SaveChanges();
-        //    ContextClass.Instance.Dispose();
+            // Add shutdown cleanup here if needed, e.g. stop PLC threads.
         }
-
-        //static void OnAlarmActivated(string alarmName)
-        //{
-        //    Application.Current.Dispatcher.BeginInvoke(
-        //    DispatcherPriority.Background,
-        //        new Action(() =>
-        //        {
-        //            ActivatedAlarm alarm = new ActivatedAlarm(ContextClass.Instance.Alarms.Find(alarmName));
-        //            ContextClass.Instance.ActivatedAlarms.Add(alarm);
-        //            ContextClass.Instance.SaveChanges();
-        //        }));
-
-        //}
-
     }
 }
