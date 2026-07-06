@@ -404,6 +404,8 @@ namespace ScadaGUI
             {
                 SelectedAlarm = null;
             }
+
+            UpdateAcknowledgeButtonState();
         }
 
         private void Button_ShowHistory(object sender, RoutedEventArgs e)
@@ -421,18 +423,48 @@ namespace ScadaGUI
 
         private void Button_AcknowledgeAlarm(object sender, RoutedEventArgs e)
         {
-            if (SelectedAlarm == null)
+            var selectedAlarms = ActiveAlarmsGrid.SelectedItems
+                .OfType<AlarmInfo>()
+                .ToList();
+
+            if (!selectedAlarms.Any())
             {
-                MessageBox.Show("Please select an alarm to acknowledge.", "Acknowledge Alarm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                UpdateAcknowledgeButtonState();
                 return;
             }
 
-            var matchingTag = IOElements.OfType<IAnalogInput>().FirstOrDefault(t => t.Name == SelectedAlarm.TagName);
-            if (matchingTag != null)
+            foreach (var alarm in selectedAlarms)
             {
-                matchingTag.AcknowledgeAlarm();
-                SelectedAlarm.IsAcknowledged = true;
-                SyncActiveAlarmsFromTags();
+                if (alarm.IsAcknowledged)
+                {
+                    continue;
+                }
+
+                var matchingTag = IOElements
+                    .OfType<IAnalogInput>()
+                    .FirstOrDefault(t => t.Name == alarm.TagName);
+
+                if (matchingTag != null)
+                {
+                    matchingTag.AcknowledgeAlarm();
+                    alarm.IsAcknowledged = true;
+                }
+            }
+
+            SyncActiveAlarmsFromTags();
+            UpdateAcknowledgeButtonState();
+        }
+
+        private void ActiveAlarmsGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            UpdateAcknowledgeButtonState();
+        }
+
+        private void UpdateAcknowledgeButtonState()
+        {
+            if (AcknowledgeAlarmButton != null && ActiveAlarmsGrid != null)
+            {
+                AcknowledgeAlarmButton.IsEnabled = ActiveAlarmsGrid.SelectedItems.Count > 0;
             }
         }
 
@@ -534,6 +566,7 @@ namespace ScadaGUI
             }
 
             CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
+            UpdateAcknowledgeButtonState();
         }
 
         private void OnPropertyChanged(string propertyName)

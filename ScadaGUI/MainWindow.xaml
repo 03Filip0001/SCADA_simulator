@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ScadaGUI"
         mc:Ignorable="d"
-        Title="SCADA Application" Height="550" Width="1000"
+        Title="SCADA Application" Height="620" Width="1100" MinHeight="560" MinWidth="980"
         Closing="Window_Closing">
     <Grid Margin="10">
         <Grid.ColumnDefinitions>
@@ -17,7 +17,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="60"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -45,7 +45,7 @@
                 </DataGrid.Columns>
             </DataGrid>
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Bottom">
+            <WrapPanel Grid.Row="2" Margin="0,4,0,0">
                 <Button Content="Add tag" Height="30" Width="95" Margin="0,0,8,0"
                         Click="Button_AddTag"/>
                 <Button Content="View tag" Height="30" Width="95" Margin="0,0,8,0"
@@ -56,29 +56,47 @@
                         Click="Button_DeleteTag"/>
                 <Button Content="Delete alarm" Height="30" Width="95"
                         Click="Button_DeleteAlarm"/>
-            </StackPanel>
+            </WrapPanel>
         </Grid>
 
-        <StackPanel Grid.Column="1" Margin="10,0,0,0">
-            <GroupBox Header="Selected Tag" Padding="10" Margin="0,0,0,10">
+        <Grid Grid.Column="1" Margin="10,0,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <GroupBox Grid.Row="0" Header="Selected Tag" Padding="8" Margin="0,0,0,8">
                 <StackPanel>
                     <TextBlock Text="Name:" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding SelectedTag.Name}" Margin="0,0,0,10"/>
+                    <TextBlock Text="{Binding SelectedTag.Name}" Margin="0,0,0,6"/>
                     <TextBlock Text="Address:" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding SelectedTag.Address}" Margin="0,0,0,10"/>
+                    <TextBlock Text="{Binding SelectedTag.Address}" Margin="0,0,0,6"/>
                     <TextBlock Text="Type:" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding SelectedTag.Type}" Margin="0,0,0,10"/>
+                    <TextBlock Text="{Binding SelectedTag.Type}" Margin="0,0,0,6"/>
                     <TextBlock Text="Selected tag details will appear here." FontStyle="Italic" Foreground="Gray"/>
                 </StackPanel>
             </GroupBox>
 
-            <GroupBox Header="Active Alarms" Padding="10" Margin="0,0,0,10">
+            <GroupBox Grid.Row="1" Header="Active Alarms" Padding="8">
                 <DockPanel>
-                    <DataGrid ItemsSource="{Binding ActiveAlarms}"
+                    <Button x:Name="AcknowledgeAlarmButton"
+                            DockPanel.Dock="Bottom"
+                            Content="Acknowledge Alarm"
+                            Width="220"
+                            Height="30"
+                            Margin="0,8,0,0"
+                            HorizontalAlignment="Left"
+                            IsEnabled="False"
+                            Click="Button_AcknowledgeAlarm"/>
+                    <DataGrid x:Name="ActiveAlarmsGrid"
+                              ItemsSource="{Binding ActiveAlarms}"
                               AutoGenerateColumns="False"
                               HeadersVisibility="Column"
                               SelectedItem="{Binding SelectedAlarm, Mode=TwoWay}"
-                              Height="280"
+                              SelectionMode="Extended"
+                              SelectionUnit="FullRow"
+                              SelectionChanged="ActiveAlarmsGrid_SelectionChanged"
+                              MinHeight="120"
                               CanUserAddRows="False">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Tag" Binding="{Binding TagName}" Width="*"/>
@@ -92,8 +110,6 @@
                     </DataGrid>
                 </DockPanel>
             </GroupBox>
-
-            <Button Content="Acknowledge Selected Alarm" Width="220" Height="30" HorizontalAlignment="Left" Click="Button_AcknowledgeAlarm"/>
-        </StackPanel>
+        </Grid>
     </Grid>
 </Window>
