@@ -86,6 +86,7 @@ namespace DataConcentrator.Model
         public double MaxValue => history.Any() ? history.Max(record => record.Value) : 0;
 
         public event Action<AnalogInput, AlarmInfo> AlarmRaised;
+        public event Action<AnalogInput> AlarmCleared;
         public event Action<AnalogInput, AnalogInputHistoryRecord> HistoryRecorded;
 
         public AnalogInput(string address)
@@ -121,15 +122,24 @@ namespace DataConcentrator.Model
             AlarmMessage = message ?? string.Empty;
             AlarmEnabled = true;
             alarmEvaluationPending = true;
+            OnPropertyChanged(nameof(AlarmEnabled));
         }
 
         public void ClearAlarm()
         {
+            bool wasActive = AlarmActive;
+
             AlarmEnabled = false;
             AlarmActive = false;
             AlarmAcknowledged = false;
             AlarmMessage = string.Empty;
             alarmEvaluationPending = false;
+            OnPropertyChanged(nameof(AlarmEnabled));
+
+            if (wasActive)
+            {
+                AlarmCleared?.Invoke(this);
+            }
         }
 
         internal void UpdateValue(double newValue)
@@ -179,10 +189,15 @@ namespace DataConcentrator.Model
 
             if (shouldBeActive)
             {
+                bool wasActive = AlarmActive;
                 var configuredMessage = AlarmMessage;
 
                 AlarmActive = true;
-                AlarmAcknowledged = false;
+                if (!wasActive)
+                {
+                    AlarmAcknowledged = false;
+                }
+
                 AlarmMessage = string.IsNullOrWhiteSpace(configuredMessage)
                     ? isAbove
                         ? $"Alarm triggered: {value:F2} > HighLimit ({HighLimit:F2})"
@@ -201,8 +216,11 @@ namespace DataConcentrator.Model
                     Timestamp = DateTime.UtcNow
                 };
 
-                PersistAlarm(alarmInfo);
-                AlarmRaised?.Invoke(this, alarmInfo);
+                if (!wasActive)
+                {
+                    TryPersistAlarm(alarmInfo);
+                    AlarmRaised?.Invoke(this, alarmInfo);
+                }
 
                 return;
             }
@@ -212,6 +230,7 @@ namespace DataConcentrator.Model
                 AlarmActive = false;
                 AlarmAcknowledged = false;
                 AlarmMessage = string.Empty;
+                AlarmCleared?.Invoke(this);
             }
         }
 
@@ -220,7 +239,7 @@ namespace DataConcentrator.Model
             return value >= LowLimit + Hysteresis && value <= HighLimit - Hysteresis;
         }
 
-        private void PersistAlarm(AlarmInfo alarmInfo)
+        private void TryPersistAlarm(AlarmInfo alarmInfo)
         {
             var record = new DataConcentrator.AlarmRecord
             {
@@ -235,11 +254,17 @@ namespace DataConcentrator.Model
 
             lock (ContextClass.SyncRoot)
             {
-                ContextClass.Instance.AlarmRecords.Add(record);
-                ContextClass.Instance.SaveChanges();
+                try
+                {
+                    ContextClass.Instance.AlarmRecords.Add(record);
+                    ContextClass.Instance.SaveChanges();
+                    alarmInfo.Id = record.Id;
+                }
+                catch
+                {
+                    alarmInfo.Id = 0;
+                }
             }
-
-            alarmInfo.Id = record.Id;
         }
     }
 

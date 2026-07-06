@@ -18,6 +18,7 @@ namespace DataConcentrator
         private volatile bool _running = true;
 
         public event Action<AlarmInfo> AlarmRaised;
+        public event Action<string> AlarmCleared;
 
         public List<ITag> IOElements { get; set; }
 
@@ -93,6 +94,7 @@ namespace DataConcentrator
                 if (tag is AnalogInput analogInput)
                 {
                     analogInput.AlarmRaised += OnAlarmRaised;
+                    analogInput.AlarmCleared += OnAlarmCleared;
                     analogInput.StartScan();
                 }
                 else if (tag is DigitalInput digitalInput)
@@ -143,6 +145,7 @@ namespace DataConcentrator
                 if (tag is AnalogInput analogInput)
                 {
                     analogInput.AlarmRaised -= OnAlarmRaised;
+                    analogInput.AlarmCleared -= OnAlarmCleared;
                     analogInput.StopScan();
                 }
                 else if (tag is DigitalInput digitalInput)
@@ -231,6 +234,11 @@ namespace DataConcentrator
         private void OnAlarmRaised(AnalogInput source, AlarmInfo alarmInfo)
         {
             AlarmRaised?.Invoke(alarmInfo);
+        }
+
+        private void OnAlarmCleared(AnalogInput source)
+        {
+            AlarmCleared?.Invoke(source.Name);
         }
     }
 

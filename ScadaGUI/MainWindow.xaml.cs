@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Threading;
 using Contracts;
 using DataConcentrator;
 using DataConcentrator.Model;
@@ -24,6 +25,7 @@ namespace ScadaGUI
         private string selectedTagTypeFilter;
 
         private readonly DataConcentrator.PLC _plc;
+        private readonly DispatcherTimer alarmRefreshTimer;
 
         public IAnalogInput TestanalogInput { get; set; }
         public ITag tag { get; set; }
@@ -110,8 +112,16 @@ namespace ScadaGUI
             SelectedTag = IOElements.FirstOrDefault();
 
             _plc.AlarmRaised += OnAlarmRaised;
+            _plc.AlarmCleared += OnAlarmCleared;
             _plc.AddInput(TestanalogInput);
             _plc.AddInput(tag);
+
+            alarmRefreshTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(500)
+            };
+            alarmRefreshTimer.Tick += (sender, args) => SyncActiveAlarmsFromTags();
+            alarmRefreshTimer.Start();
 
             DataContext = this;
         }
@@ -195,7 +205,11 @@ namespace ScadaGUI
             string details = $"Name: {SelectedTag.Name}\nAddress: {SelectedTag.Address}\nType: {SelectedTag.Type}\nDescription: {SelectedTag.Description}";
             if (SelectedTag is AnalogInput analogInput)
             {
-                details += $"\nAlarm enabled: {analogInput.AlarmEnabled}\nLow limit: {analogInput.LowLimit}\nHigh limit: {analogInput.HighLimit}";
+                details += $"\nAssigned alarm: {(analogInput.AlarmEnabled ? "Yes" : "No")}";
+                if (analogInput.AlarmEnabled)
+                {
+                    details += $"\nAlarm active: {analogInput.AlarmActive}\nLow limit: {analogInput.LowLimit}\nHigh limit: {analogInput.HighLimit}";
+                }
             }
 
             MessageBox.Show(details, "Tag Details", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -241,6 +255,8 @@ namespace ScadaGUI
 
             analogInput.ClearAlarm();
             RemoveActiveAlarmsForTag(analogInput.Name);
+            SyncActiveAlarmsFromTags();
+            OnPropertyChanged(nameof(SelectedTag));
         }
 
         private void CreateFromDialog(AddWindow addwindow)
@@ -260,6 +276,7 @@ namespace ScadaGUI
                         addwindow.DialogResultLowLimit,
                         addwindow.DialogResultHighLimit,
                         addwindow.DialogResultAlarmMessage);
+                    SyncActiveAlarmsFromTags();
                 }
 
                 return;
@@ -310,6 +327,7 @@ namespace ScadaGUI
             }
 
             FilteredIOElements.Refresh();
+            SyncActiveAlarmsFromTags();
             OnPropertyChanged(nameof(SelectedTag));
         }
 
@@ -357,6 +375,7 @@ namespace ScadaGUI
             RemoveActiveAlarmsForTag(tagToDelete.Name);
             FilteredIOElements.Refresh();
             SelectedTag = IOElements.FirstOrDefault();
+            SyncActiveAlarmsFromTags();
         }
 
         private void RemoveActiveAlarmsForTag(string tagName)
@@ -365,6 +384,11 @@ namespace ScadaGUI
             foreach (var alarm in alarmsToRemove)
             {
                 ActiveAlarms.Remove(alarm);
+            }
+
+            if (SelectedAlarm != null && SelectedAlarm.TagName == tagName)
+            {
+                SelectedAlarm = null;
             }
         }
 
@@ -394,7 +418,7 @@ namespace ScadaGUI
             {
                 matchingTag.AcknowledgeAlarm();
                 SelectedAlarm.IsAcknowledged = true;
-                CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
+                SyncActiveAlarmsFromTags();
             }
         }
 
@@ -402,17 +426,91 @@ namespace ScadaGUI
         {
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
-                lock (ContextClass.SyncRoot)
+                if (alarmInfo.Id != 0)
                 {
-                    var dbRecord = ContextClass.Instance.AlarmRecords.Find(alarmInfo.Id);
-                    if (dbRecord != null)
+                    lock (ContextClass.SyncRoot)
                     {
-                        alarmInfo.Message = dbRecord.Message;
+                        var dbRecord = ContextClass.Instance.AlarmRecords.Find(alarmInfo.Id);
+                        if (dbRecord != null)
+                        {
+                            alarmInfo.Message = dbRecord.Message;
+                        }
                     }
                 }
 
-                ActiveAlarms.Add(alarmInfo);
+                var existingAlarm = ActiveAlarms.FirstOrDefault(alarm => alarm.TagName == alarmInfo.TagName);
+                if (existingAlarm == null)
+                {
+                    ActiveAlarms.Add(alarmInfo);
+                }
+                else
+                {
+                    existingAlarm.Id = alarmInfo.Id;
+                    existingAlarm.Address = alarmInfo.Address;
+                    existingAlarm.TriggeredValue = alarmInfo.TriggeredValue;
+                    existingAlarm.LowLimit = alarmInfo.LowLimit;
+                    existingAlarm.HighLimit = alarmInfo.HighLimit;
+                    existingAlarm.IsAcknowledged = alarmInfo.IsAcknowledged;
+                    existingAlarm.Message = alarmInfo.Message;
+                    existingAlarm.Timestamp = alarmInfo.Timestamp;
+                    CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
+                }
+
+                SyncActiveAlarmsFromTags();
             }));
+        }
+
+        private void OnAlarmCleared(string tagName)
+        {
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                RemoveActiveAlarmsForTag(tagName);
+                SyncActiveAlarmsFromTags();
+            }));
+        }
+
+        private void SyncActiveAlarmsFromTags()
+        {
+            var activeInputs = IOElements
+                .OfType<AnalogInput>()
+                .Where(tag => tag.AlarmEnabled && tag.AlarmActive)
+                .ToList();
+
+            var activeNames = new HashSet<string>(activeInputs.Select(tag => tag.Name));
+            foreach (var staleAlarm in ActiveAlarms.Where(alarm => !activeNames.Contains(alarm.TagName)).ToList())
+            {
+                ActiveAlarms.Remove(staleAlarm);
+            }
+
+            foreach (var activeInput in activeInputs)
+            {
+                var alarmInfo = ActiveAlarms.FirstOrDefault(alarm => alarm.TagName == activeInput.Name);
+                if (alarmInfo == null)
+                {
+                    ActiveAlarms.Add(new AlarmInfo
+                    {
+                        TagName = activeInput.Name,
+                        Address = activeInput.Address,
+                        TriggeredValue = activeInput.CurrentValue,
+                        LowLimit = activeInput.LowLimit,
+                        HighLimit = activeInput.HighLimit,
+                        IsAcknowledged = activeInput.AlarmAcknowledged,
+                        Message = activeInput.AlarmMessage,
+                        Timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    alarmInfo.Address = activeInput.Address;
+                    alarmInfo.TriggeredValue = activeInput.CurrentValue;
+                    alarmInfo.LowLimit = activeInput.LowLimit;
+                    alarmInfo.HighLimit = activeInput.HighLimit;
+                    alarmInfo.IsAcknowledged = activeInput.AlarmAcknowledged;
+                    alarmInfo.Message = activeInput.AlarmMessage;
+                }
+            }
+
+            CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
         }
 
         private void OnPropertyChanged(string propertyName)
@@ -422,6 +520,8 @@ namespace ScadaGUI
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            alarmRefreshTimer?.Stop();
+
             // Stop all scanning threads
             foreach (var tag in IOElements)
             {
