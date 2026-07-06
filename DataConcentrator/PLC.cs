@@ -93,6 +93,11 @@ namespace DataConcentrator
                 if (tag is AnalogInput analogInput)
                 {
                     analogInput.AlarmRaised += OnAlarmRaised;
+                    analogInput.StartScan();
+                }
+                else if (tag is DigitalInput digitalInput)
+                {
+                    digitalInput.StartScan();
                 }
 
                 var address = tag.Address ?? string.Empty;
@@ -119,6 +124,42 @@ namespace DataConcentrator
             if (threadToStart != null)
             {
                 threadToStart.Start();
+            }
+
+            return true;
+        }
+
+        public bool RemoveInput(ITag tag)
+        {
+            if (tag == null)
+            {
+                return false;
+            }
+
+            lock (syncRoot)
+            {
+                IOElements.Remove(tag);
+
+                if (tag is AnalogInput analogInput)
+                {
+                    analogInput.AlarmRaised -= OnAlarmRaised;
+                    analogInput.StopScan();
+                }
+                else if (tag is DigitalInput digitalInput)
+                {
+                    digitalInput.StopScan();
+                }
+
+                var address = tag.Address ?? string.Empty;
+                if (scannedTagsByAddress.TryGetValue(address, out var tagList))
+                {
+                    tagList.Remove(tag);
+                    if (tagList.Count == 0)
+                    {
+                        scannedTagsByAddress.Remove(address);
+                        scanThreads.Remove(address);
+                    }
+                }
             }
 
             return true;

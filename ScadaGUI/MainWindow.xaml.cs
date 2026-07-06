@@ -149,70 +149,222 @@ namespace ScadaGUI
 
             if (addwindow.DialogResult.GetValueOrDefault())
             {
-                string type = addwindow.DialogResultType;
-                string name = addwindow.DialogResultName;
-                string address = addwindow.DialogResultAddress;
-                string description = addwindow.DialogResultDescription;
-
-                ITag newTag = null;
-                Tag_Type tagType = Tag_Type.AI;
-
-                if (type == "None")
+                try
                 {
-                    return;
+                    CreateFromDialog(addwindow);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Unable to create tag: {ex.Message}", "Create Tag", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void Button_UpdateTag(object sender, RoutedEventArgs e)
+        {
+            if (SelectedTag == null)
+            {
+                MessageBox.Show("Select a tag to update.", "Update Tag", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            AddWindow addwindow = new AddWindow(IOElements, SelectedTag);
+            addwindow.ShowDialog();
+
+            if (addwindow.DialogResult.GetValueOrDefault())
+            {
+                try
+                {
+                    UpdateFromDialog(SelectedTag, addwindow);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Unable to update tag: {ex.Message}", "Update Tag", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void Button_ViewTag(object sender, RoutedEventArgs e)
+        {
+            if (SelectedTag == null)
+            {
+                MessageBox.Show("Select a tag to view.", "View Tag", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            string details = $"Name: {SelectedTag.Name}\nAddress: {SelectedTag.Address}\nType: {SelectedTag.Type}\nDescription: {SelectedTag.Description}";
+            if (SelectedTag is AnalogInput analogInput)
+            {
+                details += $"\nAlarm enabled: {analogInput.AlarmEnabled}\nLow limit: {analogInput.LowLimit}\nHigh limit: {analogInput.HighLimit}";
+            }
+
+            MessageBox.Show(details, "Tag Details", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void Button_DeleteTag(object sender, RoutedEventArgs e)
+        {
+            if (SelectedTag == null)
+            {
+                MessageBox.Show("Select a tag to delete.", "Delete Tag", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var result = MessageBox.Show($"Delete tag '{SelectedTag.Name}'?", "Delete Tag", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                DeleteTag(SelectedTag);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Unable to delete tag: {ex.Message}", "Delete Tag", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void Button_DeleteAlarm(object sender, RoutedEventArgs e)
+        {
+            if (!(SelectedTag is AnalogInput analogInput))
+            {
+                MessageBox.Show("Select an analog input tag to delete its alarm.", "Delete Alarm", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (!analogInput.AlarmEnabled)
+            {
+                MessageBox.Show("The selected analog input does not have an alarm configured.", "Delete Alarm", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            analogInput.ClearAlarm();
+            RemoveActiveAlarmsForTag(analogInput.Name);
+        }
+
+        private void CreateFromDialog(AddWindow addwindow)
+        {
+            string type = addwindow.DialogResultType;
+
+            if (type == "None")
+            {
+                return;
+            }
+
+            if (type == "Alarm")
+            {
+                if (addwindow.DialogResultAlarmTarget is AnalogInput alarmTarget)
+                {
+                    alarmTarget.ConfigureAlarm(
+                        addwindow.DialogResultLowLimit,
+                        addwindow.DialogResultHighLimit,
+                        addwindow.DialogResultAlarmMessage);
                 }
 
-                if (type == "Alarm")
+                return;
+            }
+
+            if (!Enum.TryParse(type, out Tag_Type tagType))
+            {
+                MessageBox.Show("Select a valid tag type.", "Create Tag", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            ITag newTag = CreateTagByType(tagType, addwindow.DialogResultAddress);
+            if (newTag == null)
+            {
+                return;
+            }
+
+            ApplyTagValues(newTag, addwindow.DialogResultName, addwindow.DialogResultAddress, addwindow.DialogResultDescription, tagType);
+            IOElements.Add(newTag);
+            RegisterInputIfNeeded(newTag);
+            FilteredIOElements.Refresh();
+            SelectedTag = newTag;
+        }
+
+        private void UpdateFromDialog(ITag tagToUpdate, AddWindow addwindow)
+        {
+            string oldName = tagToUpdate.Name;
+            bool isInput = tagToUpdate.Type == Tag_Type.AI || tagToUpdate.Type == Tag_Type.DI;
+
+            if (isInput)
+            {
+                _plc.RemoveInput(tagToUpdate);
+            }
+
+            ApplyTagValues(tagToUpdate, addwindow.DialogResultName, addwindow.DialogResultAddress, addwindow.DialogResultDescription, tagToUpdate.Type);
+
+            if (isInput)
+            {
+                _plc.AddInput(tagToUpdate);
+            }
+
+            if (!string.Equals(oldName, tagToUpdate.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var alarm in ActiveAlarms.Where(a => a.TagName == oldName))
                 {
-                    if (addwindow.DialogResultAlarmTarget is AnalogInput alarmTarget)
-                    {
-                        alarmTarget.ConfigureAlarm(
-                            addwindow.DialogResultLowLimit,
-                            addwindow.DialogResultHighLimit,
-                            addwindow.DialogResultAlarmMessage);
-                    }
-
-                    return;
+                    alarm.TagName = tagToUpdate.Name;
                 }
+            }
 
-                // Određujem tip taga
-                if (Enum.TryParse(type, out tagType))
-                {
-                    switch (tagType)
-                    {
-                        case Tag_Type.AI:
-                            newTag = tagBuilder.CreateAnalogInput(address ?? "NEW_ADDR");
-                            break;
-                        case Tag_Type.AO:
-                            newTag = tagBuilder.CreateAnalogOutput(address ?? "NEW_ADDR");
-                            break;
-                        case Tag_Type.DI:
-                            newTag = tagBuilder.CreateDigitalInput(address ?? "NEW_ADDR");
-                            break;
-                        case Tag_Type.DO:
-                            newTag = tagBuilder.CreateDigitalOutput(address ?? "NEW_ADDR");
-                            break;
-                    }
+            FilteredIOElements.Refresh();
+            OnPropertyChanged(nameof(SelectedTag));
+        }
 
-                    if (newTag != null)
-                    {
-                        // Postavljam svojstva
-                        newTag.Name = name ?? "New Tag";
-                        newTag.Address = address ?? "NEW_ADDR";
-                        newTag.Description = description ?? "";
-                        newTag.Type = tagType;
+        private ITag CreateTagByType(Tag_Type tagType, string address)
+        {
+            switch (tagType)
+            {
+                case Tag_Type.AI:
+                    return tagBuilder.CreateAnalogInput(address);
+                case Tag_Type.AO:
+                    return tagBuilder.CreateAnalogOutput(address);
+                case Tag_Type.DI:
+                    return tagBuilder.CreateDigitalInput(address);
+                case Tag_Type.DO:
+                    return tagBuilder.CreateDigitalOutput(address);
+                default:
+                    return null;
+            }
+        }
 
-                        // Dodajem tag u kolekciju
-                        IOElements.Add(newTag);
-                        FilteredIOElements.Refresh();
+        private void ApplyTagValues(ITag tag, string name, string address, string description, Tag_Type tagType)
+        {
+            tag.Name = name;
+            tag.Address = address;
+            tag.Description = description ?? string.Empty;
+            tag.Type = tagType;
+        }
 
-                        // Ako je ulazni tag, dodajem ga u PLC za skeniranje
-                        if (tagType == Tag_Type.AI || tagType == Tag_Type.DI)
-                        {
-                            _plc.AddInput(newTag);
-                        }
-                    }
-                }
+        private void RegisterInputIfNeeded(ITag tag)
+        {
+            if (tag.Type == Tag_Type.AI || tag.Type == Tag_Type.DI)
+            {
+                _plc.AddInput(tag);
+            }
+        }
+
+        private void DeleteTag(ITag tagToDelete)
+        {
+            if (tagToDelete.Type == Tag_Type.AI || tagToDelete.Type == Tag_Type.DI)
+            {
+                _plc.RemoveInput(tagToDelete);
+            }
+
+            IOElements.Remove(tagToDelete);
+            RemoveActiveAlarmsForTag(tagToDelete.Name);
+            FilteredIOElements.Refresh();
+            SelectedTag = IOElements.FirstOrDefault();
+        }
+
+        private void RemoveActiveAlarmsForTag(string tagName)
+        {
+            var alarmsToRemove = ActiveAlarms.Where(alarm => alarm.TagName == tagName).ToList();
+            foreach (var alarm in alarmsToRemove)
+            {
+                ActiveAlarms.Remove(alarm);
             }
         }
 

@@ -21,6 +21,9 @@ namespace ScadaGUI
     /// </summary>
     public partial class AddWindow : Window
     {
+        private readonly List<ITag> existingTags;
+        private readonly ITag tagToEdit;
+
         public string DialogResultType { get; set; }
         public string DialogResultName { get; set; }
         public string DialogResultAddress { get; set; }
@@ -38,15 +41,23 @@ namespace ScadaGUI
         }
 
         public AddWindow(IEnumerable<ITag> existingTags)
+            : this(existingTags, null)
+        {
+        }
+
+        public AddWindow(IEnumerable<ITag> existingTags, ITag tagToEdit)
         {
             InitializeComponent();
+
+            this.existingTags = existingTags?.ToList() ?? new List<ITag>();
+            this.tagToEdit = tagToEdit;
 
             var dropdownOptions = new List<string> { "None", "AI", "AO", "DI", "DO", "Alarm" };
 
             Dropdown.ItemsSource = dropdownOptions;
             Dropdown.SelectedIndex = 0;
 
-            var alarmTargets = existingTags.OfType<IAnalogInput>().ToList();
+            var alarmTargets = this.existingTags.OfType<IAnalogInput>().ToList();
             AlarmTargetDropdown.ItemsSource = alarmTargets;
             if (alarmTargets.Any())
             {
@@ -55,6 +66,18 @@ namespace ScadaGUI
 
             panelAlarm.Visibility = Visibility.Collapsed;
             panelIO.Visibility = Visibility.Collapsed;
+
+            if (tagToEdit != null)
+            {
+                Title = "Update Tag";
+                CreateButton.Content = "Update";
+                Dropdown.SelectedItem = tagToEdit.Type.ToString();
+                Dropdown.IsEnabled = false;
+                TextBoxName.Text = tagToEdit.Name;
+                TextBoxAddress.Text = tagToEdit.Address;
+                TextBoxDescription.Text = tagToEdit.Description;
+                panelIO.Visibility = Visibility.Visible;
+            }
 
         }
 
@@ -98,13 +121,21 @@ namespace ScadaGUI
             TextBox textboxLowLimit = this.FindName("TextBoxLowLimit") as TextBox;
             TextBox textboxHighLimit = this.FindName("TextBoxHighLimit") as TextBox;
             TextBox textboxAlarmMessage = this.FindName("TextBoxAlarmMessage") as TextBox;
+            double lowLimit = 0;
+            double highLimit = 0;
 
-            this.DialogResultName = textboxName?.Text ?? "";
-            this.DialogResultAddress = textboxAddress?.Text ?? "";
+            this.DialogResultName = textboxName?.Text?.Trim() ?? "";
+            this.DialogResultAddress = textboxAddress?.Text?.Trim() ?? "";
             this.DialogResultDescription = textboxDescription?.Text ?? "";
             this.DialogResultAlarmMessage = textboxAlarmMessage?.Text ?? string.Empty;
             this.DialogResultAlarmTarget = AlarmTargetDropdown?.SelectedItem as IAnalogInput;
             this.DialogResultHasAlarmSettings = this.DialogResultType == "Alarm";
+
+            if (this.DialogResultType == "None")
+            {
+                this.DialogResult = true;
+                return;
+            }
 
             if (this.DialogResultType == "Alarm" && this.DialogResultAlarmTarget == null)
             {
@@ -112,22 +143,53 @@ namespace ScadaGUI
                 return;
             }
 
-            if (double.TryParse(textboxLowLimit?.Text, out var lowLimit))
+            if (this.DialogResultType != "Alarm")
             {
-                this.DialogResultLowLimit = lowLimit;
-            }
-            else
-            {
-                this.DialogResultLowLimit = 0;
+                if (string.IsNullOrWhiteSpace(this.DialogResultName))
+                {
+                    MessageBox.Show("Tag name is required.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(this.DialogResultAddress))
+                {
+                    MessageBox.Show("Tag address is required.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                bool duplicateName = existingTags.Any(tag =>
+                    !ReferenceEquals(tag, tagToEdit)
+                    && string.Equals(tag.Name, this.DialogResultName, StringComparison.OrdinalIgnoreCase));
+
+                if (duplicateName)
+                {
+                    MessageBox.Show("A tag with this name already exists.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
             }
 
-            if (double.TryParse(textboxHighLimit?.Text, out var highLimit))
+            if (this.DialogResultType == "Alarm" && !double.TryParse(textboxLowLimit?.Text, out lowLimit))
             {
-                this.DialogResultHighLimit = highLimit;
+                MessageBox.Show("Alarm low limit must be a valid number.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
-            else
+
+            if (this.DialogResultType == "Alarm" && !double.TryParse(textboxHighLimit?.Text, out highLimit))
             {
-                this.DialogResultHighLimit = 100;
+                MessageBox.Show("Alarm high limit must be a valid number.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (this.DialogResultType == "Alarm" && highLimit <= lowLimit)
+            {
+                MessageBox.Show("Alarm high limit must be greater than the low limit.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (this.DialogResultType == "Alarm")
+            {
+                this.DialogResultLowLimit = lowLimit;
+                this.DialogResultHighLimit = highLimit;
             }
 
             this.DialogResult = true;

@@ -123,6 +123,15 @@ namespace DataConcentrator.Model
             alarmEvaluationPending = true;
         }
 
+        public void ClearAlarm()
+        {
+            AlarmEnabled = false;
+            AlarmActive = false;
+            AlarmAcknowledged = false;
+            AlarmMessage = string.Empty;
+            alarmEvaluationPending = false;
+        }
+
         internal void UpdateValue(double newValue)
         {
             if (Math.Abs(CurrentValue - newValue) <= Deadband && !alarmEvaluationPending)

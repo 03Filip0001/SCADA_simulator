@@ -45,9 +45,18 @@
                 </DataGrid.Columns>
             </DataGrid>
 
-            <Button Content="Add tag" HorizontalAlignment="Left" Grid.Row="2"
-                    VerticalAlignment="Bottom" Height="30" Width="150" Margin="0,0,0,0"
-                    Click="Button_AddTag"/>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Bottom">
+                <Button Content="Add tag" Height="30" Width="95" Margin="0,0,8,0"
+                        Click="Button_AddTag"/>
+                <Button Content="View tag" Height="30" Width="95" Margin="0,0,8,0"
+                        Click="Button_ViewTag"/>
+                <Button Content="Update tag" Height="30" Width="95" Margin="0,0,8,0"
+                        Click="Button_UpdateTag"/>
+                <Button Content="Delete tag" Height="30" Width="95" Margin="0,0,8,0"
+                        Click="Button_DeleteTag"/>
+                <Button Content="Delete alarm" Height="30" Width="95"
+                        Click="Button_DeleteAlarm"/>
+            </StackPanel>
         </Grid>
 
         <StackPanel Grid.Column="1" Margin="10,0,0,0">
