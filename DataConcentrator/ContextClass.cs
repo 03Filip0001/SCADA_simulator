@@ -11,16 +11,23 @@ namespace DataConcentrator
     {
         //singleton pattern
         private static ContextClass instance;
+        private static readonly object syncRoot = new object();
+
+        public static object SyncRoot => syncRoot;
 
         public static ContextClass Instance
         {
             get
             {
-                if (instance == null)
+                lock (syncRoot)
                 {
-                    instance = new ContextClass();
+                    if (instance == null)
+                    {
+                        instance = new ContextClass();
+                    }
+
+                    return instance;
                 }
-                return instance;
             }
         }
 

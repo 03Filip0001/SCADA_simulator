@@ -14,7 +14,8 @@ namespace DataConcentrator
         private readonly IPLCSimulatorManager _plc;
         private readonly Dictionary<string, Thread> scanThreads = new Dictionary<string, Thread>();
         private readonly Dictionary<string, List<ITag>> scannedTagsByAddress = new Dictionary<string, List<ITag>>();
-        private bool _running = true;
+        private readonly object syncRoot = new object();
+        private volatile bool _running = true;
 
         public event Action<AlarmInfo> AlarmRaised;
 
@@ -31,8 +32,17 @@ namespace DataConcentrator
         {
             _running = false;
 
+            List<ITag> tagsSnapshot;
+            List<Thread> threadsSnapshot;
+
+            lock (syncRoot)
+            {
+                tagsSnapshot = IOElements.ToList();
+                threadsSnapshot = scanThreads.Values.ToList();
+            }
+
             // Give threads time to exit gracefully
-            foreach (var tag in IOElements)
+            foreach (var tag in tagsSnapshot)
             {
                 if (tag is AnalogInput analogInput)
                 {
@@ -45,7 +55,7 @@ namespace DataConcentrator
             }
 
             // Wait for scan threads to finish
-            foreach (var thread in scanThreads.Values)
+            foreach (var thread in threadsSnapshot)
             {
                 try
                 {
@@ -74,32 +84,41 @@ namespace DataConcentrator
                 return false;
             }
 
-            IOElements.Add(tag);
+            Thread threadToStart = null;
 
-            if (tag is AnalogInput analogInput)
+            lock (syncRoot)
             {
-                analogInput.AlarmRaised += OnAlarmRaised;
-            }
+                IOElements.Add(tag);
 
-            var address = tag.Address ?? string.Empty;
-            if (!scannedTagsByAddress.TryGetValue(address, out var tagList))
-            {
-                tagList = new List<ITag>();
-                scannedTagsByAddress[address] = tagList;
-            }
-
-            tagList.Add(tag);
-
-            if (!scanThreads.ContainsKey(address))
-            {
-                var thread = new Thread(() => ScanAddress(address))
+                if (tag is AnalogInput analogInput)
                 {
-                    IsBackground = true,
-                    Name = $"Scan-{address}"
-                };
+                    analogInput.AlarmRaised += OnAlarmRaised;
+                }
 
-                scanThreads[address] = thread;
-                thread.Start();
+                var address = tag.Address ?? string.Empty;
+                if (!scannedTagsByAddress.TryGetValue(address, out var tagList))
+                {
+                    tagList = new List<ITag>();
+                    scannedTagsByAddress[address] = tagList;
+                }
+
+                tagList.Add(tag);
+
+                if (!scanThreads.ContainsKey(address))
+                {
+                    threadToStart = new Thread(() => ScanAddress(address))
+                    {
+                        IsBackground = true,
+                        Name = $"Scan-{address}"
+                    };
+
+                    scanThreads[address] = threadToStart;
+                }
+            }
+
+            if (threadToStart != null)
+            {
+                threadToStart.Start();
             }
 
             return true;
@@ -109,14 +128,21 @@ namespace DataConcentrator
         {
             while (_running)
             {
-                if (!scannedTagsByAddress.TryGetValue(address, out var tags))
-                {
-                    break;
-                }
+                List<ITag> tags;
 
-                if (tags.Count == 0)
+                lock (syncRoot)
                 {
-                    break;
+                    if (!scannedTagsByAddress.TryGetValue(address, out var tagList))
+                    {
+                        break;
+                    }
+
+                    if (tagList.Count == 0)
+                    {
+                        break;
+                    }
+
+                    tags = tagList.ToList();
                 }
 
                 double? analogValue = null;
@@ -129,7 +155,7 @@ namespace DataConcentrator
                     // failure reading value should not crash the scanner thread
                 }
 
-                foreach (var tag in tags.ToList())
+                foreach (var tag in tags)
                 {
                     if (tag is AnalogInput analogInput)
                     {

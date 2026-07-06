@@ -29,19 +29,29 @@ namespace ScadaGUI
         public double DialogResultHighLimit { get; set; }
         public string DialogResultAlarmMessage { get; set; }
         public bool DialogResultHasAlarmSettings { get; set; }
+        public IAnalogInput DialogResultAlarmTarget { get; set; }
 
         // public IAlarm DialogResultAlarm {get; set;}
         public AddWindow()
+            : this(Enumerable.Empty<ITag>())
+        {
+        }
+
+        public AddWindow(IEnumerable<ITag> existingTags)
         {
             InitializeComponent();
 
-            var dropdownOptions = Enum.GetValues(typeof(Tag_Type))
-                .Cast<Tag_Type>()
-                .Select(t => t.ToString())
-                .ToList();
+            var dropdownOptions = new List<string> { "None", "AI", "AO", "DI", "DO", "Alarm" };
 
             Dropdown.ItemsSource = dropdownOptions;
             Dropdown.SelectedIndex = 0;
+
+            var alarmTargets = existingTags.OfType<IAnalogInput>().ToList();
+            AlarmTargetDropdown.ItemsSource = alarmTargets;
+            if (alarmTargets.Any())
+            {
+                AlarmTargetDropdown.SelectedIndex = 0;
+            }
 
             panelAlarm.Visibility = Visibility.Collapsed;
             panelIO.Visibility = Visibility.Collapsed;
@@ -61,20 +71,15 @@ namespace ScadaGUI
             Debug.WriteLine(item.ToString());
             Debug.WriteLine(item.GetType());
 
-            if (Enum.IsDefined(typeof(Tag_Type), item))
+            if (item.ToString() == "Alarm")
+            {
+                if (panelIO != null) panelIO.Visibility = Visibility.Collapsed;
+                if (panelAlarm != null) panelAlarm.Visibility = Visibility.Visible;
+            }
+            else if (Enum.IsDefined(typeof(Tag_Type), item))
             {
                 if (panelIO != null) panelIO.Visibility = Visibility.Visible;
                 if (panelAlarm != null) panelAlarm.Visibility = Visibility.Collapsed;
-
-                var alarmGroup = this.FindName("AlarmSettingsGroup") as UIElement;
-                if (item.ToString() == Tag_Type.AI.ToString())
-                {
-                    if (alarmGroup != null) alarmGroup.Visibility = Visibility.Visible;
-                }
-                else
-                {
-                    if (alarmGroup != null) alarmGroup.Visibility = Visibility.Collapsed;
-                }
             }
             else
             {
@@ -93,13 +98,19 @@ namespace ScadaGUI
             TextBox textboxLowLimit = this.FindName("TextBoxLowLimit") as TextBox;
             TextBox textboxHighLimit = this.FindName("TextBoxHighLimit") as TextBox;
             TextBox textboxAlarmMessage = this.FindName("TextBoxAlarmMessage") as TextBox;
-            UIElement alarmGroup = this.FindName("AlarmSettingsGroup") as UIElement;
 
             this.DialogResultName = textboxName?.Text ?? "";
             this.DialogResultAddress = textboxAddress?.Text ?? "";
             this.DialogResultDescription = textboxDescription?.Text ?? "";
             this.DialogResultAlarmMessage = textboxAlarmMessage?.Text ?? string.Empty;
-            this.DialogResultHasAlarmSettings = alarmGroup?.Visibility == Visibility.Visible;
+            this.DialogResultAlarmTarget = AlarmTargetDropdown?.SelectedItem as IAnalogInput;
+            this.DialogResultHasAlarmSettings = this.DialogResultType == "Alarm";
+
+            if (this.DialogResultType == "Alarm" && this.DialogResultAlarmTarget == null)
+            {
+                MessageBox.Show("Select an existing analog input tag for the alarm.", "Add Alarm", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             if (double.TryParse(textboxLowLimit?.Text, out var lowLimit))
             {

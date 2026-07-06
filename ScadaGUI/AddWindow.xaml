@@ -49,32 +49,35 @@
 
                 </Grid>
 
-                <GroupBox Header="Alarm postavke za AI ulaz" Margin="15,0,15,0" x:Name="AlarmSettingsGroup" Visibility="Collapsed">
-                    <Grid Margin="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="100"/>
-                            <ColumnDefinition/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Column="0" Grid.Row="0" VerticalAlignment="Center" Text="Low limit:"/>
-                        <TextBox Grid.Column="1" Grid.Row="0" Width="180" Margin="0,5,0,5" x:Name="TextBoxLowLimit"/>
-
-                        <TextBlock Grid.Column="0" Grid.Row="1" VerticalAlignment="Center" Text="High limit:"/>
-                        <TextBox Grid.Column="1" Grid.Row="1" Width="180" Margin="0,5,0,5" x:Name="TextBoxHighLimit"/>
-
-                        <TextBlock Grid.Column="0" Grid.Row="2" VerticalAlignment="Top" Text="Alarm poruka:"/>
-                        <TextBox Grid.Column="1" Grid.Row="2" Width="180" Height="60" TextWrapping="Wrap" AcceptsReturn="True" x:Name="TextBoxAlarmMessage"/>
-                    </Grid>
-                </GroupBox>
             </StackPanel>
 
             <StackPanel x:Name="panelAlarm" Visibility="Collapsed" Grid.Row="1">
-                <TextBlock Text="panel za Alarme"/>
+                <Grid Margin="15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Column="0" Grid.Row="0" Margin="0,5,10,5" VerticalAlignment="Center" Text="Tag:"/>
+                    <ComboBox Grid.Column="1" Grid.Row="0" Width="200" Margin="0,5,0,5" HorizontalAlignment="Left"
+                              x:Name="AlarmTargetDropdown" DisplayMemberPath="Name"/>
+
+                    <TextBlock Grid.Column="0" Grid.Row="1" Margin="0,5,10,5" VerticalAlignment="Center" Text="Low limit:"/>
+                    <TextBox Grid.Column="1" Grid.Row="1" Width="180" Margin="0,5,0,5" HorizontalAlignment="Left" x:Name="TextBoxLowLimit"/>
+
+                    <TextBlock Grid.Column="0" Grid.Row="2" Margin="0,5,10,5" VerticalAlignment="Center" Text="High limit:"/>
+                    <TextBox Grid.Column="1" Grid.Row="2" Width="180" Margin="0,5,0,5" HorizontalAlignment="Left" x:Name="TextBoxHighLimit"/>
+
+                    <TextBlock Grid.Column="0" Grid.Row="3" Margin="0,5,10,5" VerticalAlignment="Top" Text="Alarm poruka:"/>
+                    <TextBox Grid.Column="1" Grid.Row="3" Width="180" Height="60" TextWrapping="Wrap" AcceptsReturn="True"
+                             HorizontalAlignment="Left" x:Name="TextBoxAlarmMessage"/>
+                </Grid>
             </StackPanel>
         </Grid>
 

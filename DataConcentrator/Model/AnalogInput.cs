@@ -12,6 +12,7 @@ namespace DataConcentrator.Model
         private double currentValue;
         private bool alarmActive;
         private bool alarmAcknowledged;
+        private bool alarmEvaluationPending;
         private string alarmMessage;
         private readonly List<AnalogInputHistoryRecord> history = new List<AnalogInputHistoryRecord>();
 
@@ -24,6 +25,7 @@ namespace DataConcentrator.Model
 
         public double Deadband { get; set; }
         public double Hysteresis { get; set; }
+        public bool AlarmEnabled { get; set; }
 
         public bool AlarmActive
         {
@@ -96,6 +98,7 @@ namespace DataConcentrator.Model
             Hysteresis = 0.5;
             LowLimit = 0;
             HighLimit = 100;
+            AlarmEnabled = false;
             AlarmMessage = string.Empty;
         }
 
@@ -111,16 +114,30 @@ namespace DataConcentrator.Model
             }
         }
 
+        public void ConfigureAlarm(double lowLimit, double highLimit, string message)
+        {
+            LowLimit = lowLimit;
+            HighLimit = highLimit;
+            AlarmMessage = message ?? string.Empty;
+            AlarmEnabled = true;
+            alarmEvaluationPending = true;
+        }
+
         internal void UpdateValue(double newValue)
         {
-            if (Math.Abs(CurrentValue - newValue) <= Deadband)
+            if (Math.Abs(CurrentValue - newValue) <= Deadband && !alarmEvaluationPending)
             {
                 return;
             }
 
-            CurrentValue = newValue;
-            AddHistoryRecord(newValue);
-            EvaluateAlarm(newValue);
+            if (Math.Abs(CurrentValue - newValue) > Deadband)
+            {
+                CurrentValue = newValue;
+                AddHistoryRecord(newValue);
+            }
+
+            alarmEvaluationPending = false;
+            EvaluateAlarm(CurrentValue);
         }
 
         private void AddHistoryRecord(double newValue)
@@ -142,17 +159,26 @@ namespace DataConcentrator.Model
 
         private void EvaluateAlarm(double value)
         {
+            if (!AlarmEnabled)
+            {
+                return;
+            }
+
             bool isAbove = value > HighLimit;
             bool isBelow = value < LowLimit;
             bool shouldBeActive = isAbove || isBelow;
 
             if (shouldBeActive)
             {
+                var configuredMessage = AlarmMessage;
+
                 AlarmActive = true;
                 AlarmAcknowledged = false;
-                AlarmMessage = isAbove
-                    ? $"Alarm triggered: {value:F2} > HighLimit ({HighLimit:F2})"
-                    : $"Alarm triggered: {value:F2} < LowLimit ({LowLimit:F2})";
+                AlarmMessage = string.IsNullOrWhiteSpace(configuredMessage)
+                    ? isAbove
+                        ? $"Alarm triggered: {value:F2} > HighLimit ({HighLimit:F2})"
+                        : $"Alarm triggered: {value:F2} < LowLimit ({LowLimit:F2})"
+                    : configuredMessage;
 
                 var alarmInfo = new AlarmInfo
                 {
@@ -198,8 +224,12 @@ namespace DataConcentrator.Model
                 Timestamp = alarmInfo.Timestamp
             };
 
-            ContextClass.Instance.AlarmRecords.Add(record);
-            ContextClass.Instance.SaveChanges();
+            lock (ContextClass.SyncRoot)
+            {
+                ContextClass.Instance.AlarmRecords.Add(record);
+                ContextClass.Instance.SaveChanges();
+            }
+
             alarmInfo.Id = record.Id;
         }
     }

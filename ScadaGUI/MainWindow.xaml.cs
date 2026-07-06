@@ -144,7 +144,7 @@ namespace ScadaGUI
 
         private void Button_AddTag(object sender, RoutedEventArgs e)
         {
-            AddWindow addwindow = new AddWindow();
+            AddWindow addwindow = new AddWindow(IOElements);
             addwindow.ShowDialog();
 
             if (addwindow.DialogResult.GetValueOrDefault())
@@ -156,6 +156,24 @@ namespace ScadaGUI
 
                 ITag newTag = null;
                 Tag_Type tagType = Tag_Type.AI;
+
+                if (type == "None")
+                {
+                    return;
+                }
+
+                if (type == "Alarm")
+                {
+                    if (addwindow.DialogResultAlarmTarget is AnalogInput alarmTarget)
+                    {
+                        alarmTarget.ConfigureAlarm(
+                            addwindow.DialogResultLowLimit,
+                            addwindow.DialogResultHighLimit,
+                            addwindow.DialogResultAlarmMessage);
+                    }
+
+                    return;
+                }
 
                 // Određujem tip taga
                 if (Enum.TryParse(type, out tagType))
@@ -183,13 +201,6 @@ namespace ScadaGUI
                         newTag.Address = address ?? "NEW_ADDR";
                         newTag.Description = description ?? "";
                         newTag.Type = tagType;
-
-                        if (newTag is AnalogInput analogInput && addwindow.DialogResultHasAlarmSettings)
-                        {
-                            analogInput.LowLimit = addwindow.DialogResultLowLimit;
-                            analogInput.HighLimit = addwindow.DialogResultHighLimit;
-                            analogInput.AlarmMessage = addwindow.DialogResultAlarmMessage ?? string.Empty;
-                        }
 
                         // Dodajem tag u kolekciju
                         IOElements.Add(newTag);
@@ -239,10 +250,13 @@ namespace ScadaGUI
         {
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
-                var dbRecord = ContextClass.Instance.AlarmRecords.Find(alarmInfo.Id);
-                if (dbRecord != null)
+                lock (ContextClass.SyncRoot)
                 {
-                    alarmInfo.Message = dbRecord.Message;
+                    var dbRecord = ContextClass.Instance.AlarmRecords.Find(alarmInfo.Id);
+                    if (dbRecord != null)
+                    {
+                        alarmInfo.Message = dbRecord.Message;
+                    }
                 }
 
                 ActiveAlarms.Add(alarmInfo);
@@ -274,8 +288,11 @@ namespace ScadaGUI
             // Close database context if needed
             try
             {
-                ContextClass.Instance.SaveChanges();
-                ContextClass.Instance.Dispose();
+                lock (ContextClass.SyncRoot)
+                {
+                    ContextClass.Instance.SaveChanges();
+                    ContextClass.Instance.Dispose();
+                }
             }
             catch
             {
