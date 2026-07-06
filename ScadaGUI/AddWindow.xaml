@@ -24,7 +24,9 @@
                 <ComboBox Width="150" Height="25" x:Name="Dropdown" SelectionChanged="Dropdown_Changed"/>
             </StackPanel>
 
-            <StackPanel x:Name="panelIO" Visibility="Collapsed" Grid.Row="1">
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+            <StackPanel x:Name="panelIO" Visibility="Collapsed">
 
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -51,7 +53,7 @@
 
             </StackPanel>
 
-            <StackPanel x:Name="panelAlarm" Visibility="Collapsed" Grid.Row="1">
+            <StackPanel x:Name="panelAlarm" Visibility="Collapsed">
                 <Grid Margin="15">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="120"/>
@@ -62,23 +64,37 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Column="0" Grid.Row="0" Margin="0,5,10,5" VerticalAlignment="Center" Text="Tag:"/>
                     <ComboBox Grid.Column="1" Grid.Row="0" Width="200" Margin="0,5,0,5" HorizontalAlignment="Left"
                               x:Name="AlarmTargetDropdown" DisplayMemberPath="Name"/>
 
-                    <TextBlock Grid.Column="0" Grid.Row="1" Margin="0,5,10,5" VerticalAlignment="Center" Text="Low limit:"/>
-                    <TextBox Grid.Column="1" Grid.Row="1" Width="180" Margin="0,5,0,5" HorizontalAlignment="Left" x:Name="TextBoxLowLimit"/>
+                    <TextBlock Grid.Column="0" Grid.Row="1" Margin="0,5,10,5" VerticalAlignment="Center" Text="Alarm name:"/>
+                    <TextBox Grid.Column="1" Grid.Row="1" Width="180" Margin="0,5,0,5" HorizontalAlignment="Left" x:Name="TextBoxAlarmName"/>
 
-                    <TextBlock Grid.Column="0" Grid.Row="2" Margin="0,5,10,5" VerticalAlignment="Center" Text="High limit:"/>
-                    <TextBox Grid.Column="1" Grid.Row="2" Width="180" Margin="0,5,0,5" HorizontalAlignment="Left" x:Name="TextBoxHighLimit"/>
+                    <TextBlock Grid.Column="0" Grid.Row="2" Margin="0,5,10,5" VerticalAlignment="Center" Text="Alarm type:"/>
+                    <TextBox Grid.Column="1" Grid.Row="2" Width="180" Margin="0,5,0,5" HorizontalAlignment="Left" x:Name="TextBoxAlarmType"/>
 
-                    <TextBlock Grid.Column="0" Grid.Row="3" Margin="0,5,10,5" VerticalAlignment="Top" Text="Alarm poruka:"/>
-                    <TextBox Grid.Column="1" Grid.Row="3" Width="180" Height="60" TextWrapping="Wrap" AcceptsReturn="True"
+                    <TextBlock Grid.Column="0" Grid.Row="3" Margin="0,5,10,5" VerticalAlignment="Center" Text="Priority:"/>
+                    <TextBox Grid.Column="1" Grid.Row="3" Width="180" Margin="0,5,0,5" HorizontalAlignment="Left" x:Name="TextBoxAlarmPriority"/>
+
+                    <TextBlock Grid.Column="0" Grid.Row="4" Margin="0,5,10,5" VerticalAlignment="Center" Text="Low limit:"/>
+                    <TextBox Grid.Column="1" Grid.Row="4" Width="180" Margin="0,5,0,5" HorizontalAlignment="Left" x:Name="TextBoxLowLimit"/>
+
+                    <TextBlock Grid.Column="0" Grid.Row="5" Margin="0,5,10,5" VerticalAlignment="Center" Text="High limit:"/>
+                    <TextBox Grid.Column="1" Grid.Row="5" Width="180" Margin="0,5,0,5" HorizontalAlignment="Left" x:Name="TextBoxHighLimit"/>
+
+                    <TextBlock Grid.Column="0" Grid.Row="6" Margin="0,5,10,5" VerticalAlignment="Top" Text="Alarm poruka:"/>
+                    <TextBox Grid.Column="1" Grid.Row="6" Width="180" Height="60" TextWrapping="Wrap" AcceptsReturn="True"
                              HorizontalAlignment="Left" x:Name="TextBoxAlarmMessage"/>
                 </Grid>
             </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
 
         <Button Grid.Row="1" x:Name="CreateButton" Content="Create" Width="135" Height="35"  Margin="15,0,0,0" HorizontalAlignment="Left"

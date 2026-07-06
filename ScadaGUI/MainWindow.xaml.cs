@@ -208,7 +208,7 @@ namespace ScadaGUI
                 details += $"\nAssigned alarm: {(analogInput.AlarmEnabled ? "Yes" : "No")}";
                 if (analogInput.AlarmEnabled)
                 {
-                    details += $"\nAlarm active: {analogInput.AlarmActive}\nLow limit: {analogInput.LowLimit}\nHigh limit: {analogInput.HighLimit}";
+                    details += $"\nAlarm name: {analogInput.AlarmName}\nAlarm type: {analogInput.AlarmType}\nPriority: {analogInput.AlarmPriority}\nAlarm active: {analogInput.AlarmActive}\nLow limit: {analogInput.LowLimit}\nHigh limit: {analogInput.HighLimit}";
                 }
             }
 
@@ -275,7 +275,10 @@ namespace ScadaGUI
                     alarmTarget.ConfigureAlarm(
                         addwindow.DialogResultLowLimit,
                         addwindow.DialogResultHighLimit,
-                        addwindow.DialogResultAlarmMessage);
+                        addwindow.DialogResultAlarmMessage,
+                        addwindow.DialogResultAlarmName,
+                        addwindow.DialogResultAlarmType,
+                        addwindow.DialogResultAlarmPriority);
                     SyncActiveAlarmsFromTags();
                 }
 
@@ -312,6 +315,17 @@ namespace ScadaGUI
             }
 
             ApplyTagValues(tagToUpdate, addwindow.DialogResultName, addwindow.DialogResultAddress, addwindow.DialogResultDescription, tagToUpdate.Type);
+
+            if (addwindow.DialogResultHasAlarmSettings && tagToUpdate is AnalogInput alarmTarget)
+            {
+                alarmTarget.ConfigureAlarm(
+                    addwindow.DialogResultLowLimit,
+                    addwindow.DialogResultHighLimit,
+                    addwindow.DialogResultAlarmMessage,
+                    addwindow.DialogResultAlarmName,
+                    addwindow.DialogResultAlarmType,
+                    addwindow.DialogResultAlarmPriority);
+            }
 
             if (isInput)
             {
@@ -451,6 +465,9 @@ namespace ScadaGUI
                     existingAlarm.LowLimit = alarmInfo.LowLimit;
                     existingAlarm.HighLimit = alarmInfo.HighLimit;
                     existingAlarm.IsAcknowledged = alarmInfo.IsAcknowledged;
+                    existingAlarm.AlarmName = alarmInfo.AlarmName;
+                    existingAlarm.AlarmType = alarmInfo.AlarmType;
+                    existingAlarm.Priority = alarmInfo.Priority;
                     existingAlarm.Message = alarmInfo.Message;
                     existingAlarm.Timestamp = alarmInfo.Timestamp;
                     CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
@@ -495,6 +512,9 @@ namespace ScadaGUI
                         LowLimit = activeInput.LowLimit,
                         HighLimit = activeInput.HighLimit,
                         IsAcknowledged = activeInput.AlarmAcknowledged,
+                        AlarmName = activeInput.AlarmName,
+                        AlarmType = activeInput.AlarmType,
+                        Priority = activeInput.AlarmPriority,
                         Message = activeInput.AlarmMessage,
                         Timestamp = DateTime.UtcNow
                     });
@@ -506,6 +526,9 @@ namespace ScadaGUI
                     alarmInfo.LowLimit = activeInput.LowLimit;
                     alarmInfo.HighLimit = activeInput.HighLimit;
                     alarmInfo.IsAcknowledged = activeInput.AlarmAcknowledged;
+                    alarmInfo.AlarmName = activeInput.AlarmName;
+                    alarmInfo.AlarmType = activeInput.AlarmType;
+                    alarmInfo.Priority = activeInput.AlarmPriority;
                     alarmInfo.Message = activeInput.AlarmMessage;
                 }
             }

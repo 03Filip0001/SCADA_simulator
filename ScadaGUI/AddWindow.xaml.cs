@@ -30,6 +30,9 @@ namespace ScadaGUI
         public string DialogResultDescription { get; set; }
         public double DialogResultLowLimit { get; set; }
         public double DialogResultHighLimit { get; set; }
+        public string DialogResultAlarmName { get; set; }
+        public string DialogResultAlarmType { get; set; }
+        public int DialogResultAlarmPriority { get; set; }
         public string DialogResultAlarmMessage { get; set; }
         public bool DialogResultHasAlarmSettings { get; set; }
         public IAnalogInput DialogResultAlarmTarget { get; set; }
@@ -77,6 +80,19 @@ namespace ScadaGUI
                 TextBoxAddress.Text = tagToEdit.Address;
                 TextBoxDescription.Text = tagToEdit.Description;
                 panelIO.Visibility = Visibility.Visible;
+
+                if (tagToEdit is DataConcentrator.Model.AnalogInput analogInput && analogInput.AlarmEnabled)
+                {
+                    panelAlarm.Visibility = Visibility.Visible;
+                    AlarmTargetDropdown.SelectedItem = tagToEdit;
+                    AlarmTargetDropdown.IsEnabled = false;
+                    TextBoxAlarmName.Text = analogInput.AlarmName;
+                    TextBoxAlarmType.Text = analogInput.AlarmType;
+                    TextBoxAlarmPriority.Text = analogInput.AlarmPriority.ToString();
+                    TextBoxLowLimit.Text = analogInput.LowLimit.ToString();
+                    TextBoxHighLimit.Text = analogInput.HighLimit.ToString();
+                    TextBoxAlarmMessage.Text = analogInput.AlarmMessage;
+                }
             }
 
         }
@@ -118,18 +134,25 @@ namespace ScadaGUI
             TextBox textboxName = this.FindName("TextBoxName") as TextBox;
             TextBox textboxAddress = this.FindName("TextBoxAddress") as TextBox;
             TextBox textboxDescription = this.FindName("TextBoxDescription") as TextBox;
+            TextBox textboxAlarmName = this.FindName("TextBoxAlarmName") as TextBox;
+            TextBox textboxAlarmType = this.FindName("TextBoxAlarmType") as TextBox;
+            TextBox textboxAlarmPriority = this.FindName("TextBoxAlarmPriority") as TextBox;
             TextBox textboxLowLimit = this.FindName("TextBoxLowLimit") as TextBox;
             TextBox textboxHighLimit = this.FindName("TextBoxHighLimit") as TextBox;
             TextBox textboxAlarmMessage = this.FindName("TextBoxAlarmMessage") as TextBox;
             double lowLimit = 0;
             double highLimit = 0;
+            int alarmPriority = 0;
 
             this.DialogResultName = textboxName?.Text?.Trim() ?? "";
             this.DialogResultAddress = textboxAddress?.Text?.Trim() ?? "";
             this.DialogResultDescription = textboxDescription?.Text ?? "";
+            this.DialogResultAlarmName = textboxAlarmName?.Text?.Trim() ?? string.Empty;
+            this.DialogResultAlarmType = textboxAlarmType?.Text?.Trim() ?? string.Empty;
             this.DialogResultAlarmMessage = textboxAlarmMessage?.Text ?? string.Empty;
             this.DialogResultAlarmTarget = AlarmTargetDropdown?.SelectedItem as IAnalogInput;
-            this.DialogResultHasAlarmSettings = this.DialogResultType == "Alarm";
+            this.DialogResultHasAlarmSettings = this.DialogResultType == "Alarm"
+                || (tagToEdit is DataConcentrator.Model.AnalogInput editedAnalogInput && editedAnalogInput.AlarmEnabled);
 
             if (this.DialogResultType == "None")
             {
@@ -137,7 +160,7 @@ namespace ScadaGUI
                 return;
             }
 
-            if (this.DialogResultType == "Alarm" && this.DialogResultAlarmTarget == null)
+            if (this.DialogResultHasAlarmSettings && this.DialogResultAlarmTarget == null)
             {
                 MessageBox.Show("Select an existing analog input tag for the alarm.", "Add Alarm", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -168,28 +191,53 @@ namespace ScadaGUI
                 }
             }
 
-            if (this.DialogResultType == "Alarm" && !double.TryParse(textboxLowLimit?.Text, out lowLimit))
+            if (this.DialogResultHasAlarmSettings && string.IsNullOrWhiteSpace(this.DialogResultAlarmName))
+            {
+                MessageBox.Show("Alarm name is required.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (this.DialogResultHasAlarmSettings && string.IsNullOrWhiteSpace(this.DialogResultAlarmType))
+            {
+                MessageBox.Show("Alarm type is required.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (this.DialogResultHasAlarmSettings && !int.TryParse(textboxAlarmPriority?.Text, out alarmPriority))
+            {
+                MessageBox.Show("Alarm priority must be a valid whole number.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (this.DialogResultHasAlarmSettings && alarmPriority < 0)
+            {
+                MessageBox.Show("Alarm priority cannot be negative.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (this.DialogResultHasAlarmSettings && !double.TryParse(textboxLowLimit?.Text, out lowLimit))
             {
                 MessageBox.Show("Alarm low limit must be a valid number.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            if (this.DialogResultType == "Alarm" && !double.TryParse(textboxHighLimit?.Text, out highLimit))
+            if (this.DialogResultHasAlarmSettings && !double.TryParse(textboxHighLimit?.Text, out highLimit))
             {
                 MessageBox.Show("Alarm high limit must be a valid number.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            if (this.DialogResultType == "Alarm" && highLimit <= lowLimit)
+            if (this.DialogResultHasAlarmSettings && highLimit <= lowLimit)
             {
                 MessageBox.Show("Alarm high limit must be greater than the low limit.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            if (this.DialogResultType == "Alarm")
+            if (this.DialogResultHasAlarmSettings)
             {
                 this.DialogResultLowLimit = lowLimit;
                 this.DialogResultHighLimit = highLimit;
+                this.DialogResultAlarmPriority = alarmPriority;
             }
 
             this.DialogResult = true;

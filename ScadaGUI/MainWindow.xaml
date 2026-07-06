@@ -82,6 +82,9 @@
                               CanUserAddRows="False">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Tag" Binding="{Binding TagName}" Width="*"/>
+                            <DataGridTextColumn Header="Alarm" Binding="{Binding AlarmName}" Width="*"/>
+                            <DataGridTextColumn Header="Type" Binding="{Binding AlarmType}" Width="*"/>
+                            <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="Auto"/>
                             <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*"/>
                             <DataGridTextColumn Header="Time" Binding="{Binding Timestamp}" Width="*"/>
                             <DataGridTextColumn Header="Ack" Binding="{Binding IsAcknowledged}" Width="Auto"/>

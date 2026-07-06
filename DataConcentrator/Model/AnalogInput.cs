@@ -26,6 +26,9 @@ namespace DataConcentrator.Model
         public double Deadband { get; set; }
         public double Hysteresis { get; set; }
         public bool AlarmEnabled { get; set; }
+        public string AlarmName { get; set; }
+        public string AlarmType { get; set; }
+        public int AlarmPriority { get; set; }
 
         public bool AlarmActive
         {
@@ -100,6 +103,9 @@ namespace DataConcentrator.Model
             LowLimit = 0;
             HighLimit = 100;
             AlarmEnabled = false;
+            AlarmName = string.Empty;
+            AlarmType = string.Empty;
+            AlarmPriority = 0;
             AlarmMessage = string.Empty;
         }
 
@@ -117,12 +123,23 @@ namespace DataConcentrator.Model
 
         public void ConfigureAlarm(double lowLimit, double highLimit, string message)
         {
+            ConfigureAlarm(lowLimit, highLimit, message, string.Empty, string.Empty, 0);
+        }
+
+        public void ConfigureAlarm(double lowLimit, double highLimit, string message, string alarmName, string alarmType, int alarmPriority)
+        {
             LowLimit = lowLimit;
             HighLimit = highLimit;
             AlarmMessage = message ?? string.Empty;
+            AlarmName = alarmName ?? string.Empty;
+            AlarmType = alarmType ?? string.Empty;
+            AlarmPriority = alarmPriority;
             AlarmEnabled = true;
             alarmEvaluationPending = true;
             OnPropertyChanged(nameof(AlarmEnabled));
+            OnPropertyChanged(nameof(AlarmName));
+            OnPropertyChanged(nameof(AlarmType));
+            OnPropertyChanged(nameof(AlarmPriority));
         }
 
         public void ClearAlarm()
@@ -132,9 +149,15 @@ namespace DataConcentrator.Model
             AlarmEnabled = false;
             AlarmActive = false;
             AlarmAcknowledged = false;
+            AlarmName = string.Empty;
+            AlarmType = string.Empty;
+            AlarmPriority = 0;
             AlarmMessage = string.Empty;
             alarmEvaluationPending = false;
             OnPropertyChanged(nameof(AlarmEnabled));
+            OnPropertyChanged(nameof(AlarmName));
+            OnPropertyChanged(nameof(AlarmType));
+            OnPropertyChanged(nameof(AlarmPriority));
 
             if (wasActive)
             {
@@ -212,6 +235,9 @@ namespace DataConcentrator.Model
                     LowLimit = LowLimit,
                     HighLimit = HighLimit,
                     IsAcknowledged = AlarmAcknowledged,
+                    AlarmName = AlarmName,
+                    AlarmType = AlarmType,
+                    Priority = AlarmPriority,
                     Message = AlarmMessage,
                     Timestamp = DateTime.UtcNow
                 };
@@ -285,6 +311,9 @@ namespace DataConcentrator.Model
         public double LowLimit { get; set; }
         public double HighLimit { get; set; }
         public bool IsAcknowledged { get; set; }
+        public string AlarmName { get; set; }
+        public string AlarmType { get; set; }
+        public int Priority { get; set; }
         public string Message { get; set; }
         public DateTime Timestamp { get; set; }
     }
