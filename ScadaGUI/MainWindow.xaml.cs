@@ -10,6 +10,7 @@ using System.Windows.Threading;
 using Contracts;
 using DataConcentrator;
 using DataConcentrator.Model;
+using DataConcentrator.Persistence;
 using PLCSimulator;
 
 namespace ScadaGUI
@@ -26,6 +27,8 @@ namespace ScadaGUI
 
         private readonly DataConcentrator.PLC _plc;
         private readonly DispatcherTimer alarmRefreshTimer;
+        private DateTime lastRuntimePersist = DateTime.MinValue;
+        private bool persistenceWarningShown;
 
         public IAnalogInput TestanalogInput { get; set; }
         public ITag tag { get; set; }
@@ -95,16 +98,7 @@ namespace ScadaGUI
             tagBuilder = builder;
             _plc = new DataConcentrator.PLC(new PLCSimulatorManager());
 
-            TestanalogInput = builder.CreateAnalogInput("ADDR001");
-            TestanalogInput.Name = "Analog Tag 1";
-            TestanalogInput.Type = Tag_Type.AI;
-
-            tag = builder.CreateDigitalInput("ADDR009");
-            tag.Name = "Digital Tag 1";
-            tag.Type = Tag_Type.DI;
-
-            IOElements.Add(TestanalogInput);
-            IOElements.Add(tag);
+            LoadPersistedTagsOrDefaults(builder);
 
             FilteredIOElements = CollectionViewSource.GetDefaultView(IOElements);
             FilteredIOElements.Filter = FilterTag;
@@ -113,8 +107,10 @@ namespace ScadaGUI
 
             _plc.AlarmRaised += OnAlarmRaised;
             _plc.AlarmCleared += OnAlarmCleared;
-            _plc.AddInput(TestanalogInput);
-            _plc.AddInput(tag);
+            foreach (var element in IOElements)
+            {
+                RegisterInputIfNeeded(element);
+            }
 
             alarmRefreshTimer = new DispatcherTimer
             {
@@ -124,6 +120,44 @@ namespace ScadaGUI
             alarmRefreshTimer.Start();
 
             DataContext = this;
+        }
+
+        private void LoadPersistedTagsOrDefaults(ITagBuilder builder)
+        {
+            if (!PersistenceService.Initialize(out string initializeError))
+            {
+                ShowPersistenceWarning(initializeError);
+            }
+
+            var persistedTags = PersistenceService.LoadTags(builder, out string loadError);
+            if (!string.IsNullOrWhiteSpace(loadError))
+            {
+                ShowPersistenceWarning(loadError);
+            }
+
+            foreach (var persistedTag in persistedTags)
+            {
+                IOElements.Add(persistedTag);
+            }
+
+            if (IOElements.Any())
+            {
+                return;
+            }
+
+            TestanalogInput = builder.CreateAnalogInput("ADDR001");
+            TestanalogInput.Name = "Analog Tag 1";
+            TestanalogInput.Address = "ADDR001";
+            TestanalogInput.Type = Tag_Type.AI;
+
+            tag = builder.CreateDigitalInput("ADDR009");
+            tag.Name = "Digital Tag 1";
+            tag.Address = "ADDR009";
+            tag.Type = Tag_Type.DI;
+
+            IOElements.Add(TestanalogInput);
+            IOElements.Add(tag);
+            SaveAllTags();
         }
 
         private bool FilterTag(object obj)
@@ -255,6 +289,7 @@ namespace ScadaGUI
 
             analogInput.ClearAlarm();
             RemoveActiveAlarmsForTag(analogInput.Name);
+            DeleteAlarmConfiguration(analogInput.Name);
             SyncActiveAlarmsFromTags();
             OnPropertyChanged(nameof(SelectedTag));
         }
@@ -279,6 +314,7 @@ namespace ScadaGUI
                         addwindow.DialogResultAlarmName,
                         addwindow.DialogResultAlarmType,
                         addwindow.DialogResultAlarmPriority);
+                    SaveAlarmConfiguration(alarmTarget);
                     SyncActiveAlarmsFromTags();
                 }
 
@@ -300,6 +336,7 @@ namespace ScadaGUI
             ApplyTagValues(newTag, addwindow.DialogResultName, addwindow.DialogResultAddress, addwindow.DialogResultDescription, tagType);
             IOElements.Add(newTag);
             RegisterInputIfNeeded(newTag);
+            SaveTag(newTag);
             FilteredIOElements.Refresh();
             SelectedTag = newTag;
         }
@@ -331,6 +368,8 @@ namespace ScadaGUI
             {
                 _plc.AddInput(tagToUpdate);
             }
+
+            SaveTag(tagToUpdate, oldName);
 
             if (!string.Equals(oldName, tagToUpdate.Name, StringComparison.OrdinalIgnoreCase))
             {
@@ -387,6 +426,7 @@ namespace ScadaGUI
 
             IOElements.Remove(tagToDelete);
             RemoveActiveAlarmsForTag(tagToDelete.Name);
+            DeletePersistedTag(tagToDelete.Name);
             FilteredIOElements.Refresh();
             SelectedTag = IOElements.FirstOrDefault();
             SyncActiveAlarmsFromTags();
@@ -448,6 +488,10 @@ namespace ScadaGUI
                 {
                     matchingTag.AcknowledgeAlarm();
                     alarm.IsAcknowledged = true;
+                    if (matchingTag is AnalogInput analogInput)
+                    {
+                        SaveAlarmConfiguration(analogInput);
+                    }
                 }
             }
 
@@ -472,18 +516,6 @@ namespace ScadaGUI
         {
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
-                if (alarmInfo.Id != 0)
-                {
-                    lock (ContextClass.SyncRoot)
-                    {
-                        var dbRecord = ContextClass.Instance.AlarmRecords.Find(alarmInfo.Id);
-                        if (dbRecord != null)
-                        {
-                            alarmInfo.Message = dbRecord.Message;
-                        }
-                    }
-                }
-
                 var existingAlarm = ActiveAlarms.FirstOrDefault(alarm => alarm.TagName == alarmInfo.TagName);
                 if (existingAlarm == null)
                 {
@@ -505,6 +537,12 @@ namespace ScadaGUI
                     CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
                 }
 
+                var sourceTag = IOElements.OfType<AnalogInput>().FirstOrDefault(tag => tag.Name == alarmInfo.TagName);
+                if (sourceTag != null)
+                {
+                    SaveAlarmConfiguration(sourceTag);
+                }
+
                 SyncActiveAlarmsFromTags();
             }));
         }
@@ -514,6 +552,12 @@ namespace ScadaGUI
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 RemoveActiveAlarmsForTag(tagName);
+                var sourceTag = IOElements.OfType<AnalogInput>().FirstOrDefault(tag => tag.Name == tagName);
+                if (sourceTag != null)
+                {
+                    SaveAlarmConfiguration(sourceTag);
+                }
+
                 SyncActiveAlarmsFromTags();
             }));
         }
@@ -567,6 +611,73 @@ namespace ScadaGUI
 
             CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
             UpdateAcknowledgeButtonState();
+            SaveRuntimeStateIfDue();
+        }
+
+        private void SaveRuntimeStateIfDue()
+        {
+            if ((DateTime.UtcNow - lastRuntimePersist).TotalSeconds < 5)
+            {
+                return;
+            }
+
+            lastRuntimePersist = DateTime.UtcNow;
+            SaveAllTags(false);
+        }
+
+        private void SaveTag(ITag tag, string oldName = null)
+        {
+            if (!PersistenceService.SaveTag(tag, out string errorMessage, oldName))
+            {
+                ShowPersistenceWarning(errorMessage);
+            }
+        }
+
+        private void SaveAlarmConfiguration(AnalogInput tag)
+        {
+            if (!PersistenceService.SaveAlarm(tag, out string errorMessage))
+            {
+                ShowPersistenceWarning(errorMessage);
+            }
+        }
+
+        private void DeletePersistedTag(string tagName)
+        {
+            if (!PersistenceService.DeleteTag(tagName, out string errorMessage))
+            {
+                ShowPersistenceWarning(errorMessage);
+            }
+        }
+
+        private void DeleteAlarmConfiguration(string tagName)
+        {
+            if (!PersistenceService.DeleteAlarm(tagName, out string errorMessage))
+            {
+                ShowPersistenceWarning(errorMessage);
+            }
+        }
+
+        private void SaveAllTags(bool showWarning = true)
+        {
+            if (!PersistenceService.SaveAll(IOElements, out string errorMessage) && showWarning)
+            {
+                ShowPersistenceWarning(errorMessage);
+            }
+        }
+
+        private void ShowPersistenceWarning(string errorMessage)
+        {
+            if (persistenceWarningShown || string.IsNullOrWhiteSpace(errorMessage))
+            {
+                return;
+            }
+
+            persistenceWarningShown = true;
+            MessageBox.Show(
+                $"Persistent storage is unavailable: {errorMessage}",
+                "Database",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
 
         private void OnPropertyChanged(string propertyName)
@@ -593,19 +704,8 @@ namespace ScadaGUI
                 _plc.StopSimulator();
             }
 
-            // Close database context if needed
-            try
-            {
-                lock (ContextClass.SyncRoot)
-                {
-                    ContextClass.Instance.SaveChanges();
-                    ContextClass.Instance.Dispose();
-                }
-            }
-            catch
-            {
-                // Ignore any database errors during shutdown
-            }
+            SaveAllTags(false);
+
         }
     }
 }

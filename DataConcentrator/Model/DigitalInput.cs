@@ -40,6 +40,11 @@ namespace DataConcentrator.Model
             CurrentState = newState;
         }
 
+        internal void RestoreCurrentState(bool currentState)
+        {
+            CurrentState = currentState;
+        }
+
         public void StartScan() => ScanOn = true;
 
         public void StopScan() => ScanOn = false;

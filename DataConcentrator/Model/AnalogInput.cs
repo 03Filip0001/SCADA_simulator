@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using Contracts;
 using DataConcentrator;
+using DataConcentrator.Persistence;
 
 namespace DataConcentrator.Model
 {
@@ -119,6 +120,18 @@ namespace DataConcentrator.Model
             {
                 AlarmAcknowledged = true;
             }
+        }
+
+        public void RestoreCurrentValue(double value)
+        {
+            CurrentValue = value;
+        }
+
+        public void RestoreAlarmState(bool isActive, bool isAcknowledged)
+        {
+            AlarmActive = isActive;
+            AlarmAcknowledged = isActive && isAcknowledged;
+            alarmEvaluationPending = true;
         }
 
         public void ConfigureAlarm(double lowLimit, double highLimit, string message)
@@ -267,29 +280,9 @@ namespace DataConcentrator.Model
 
         private void TryPersistAlarm(AlarmInfo alarmInfo)
         {
-            var record = new DataConcentrator.AlarmRecord
+            if (!PersistenceService.SaveAlarmEvent(alarmInfo, out _))
             {
-                TagName = alarmInfo.TagName,
-                Address = alarmInfo.Address,
-                TriggeredValue = alarmInfo.TriggeredValue,
-                LowLimit = alarmInfo.LowLimit,
-                HighLimit = alarmInfo.HighLimit,
-                Message = alarmInfo.Message,
-                Timestamp = alarmInfo.Timestamp
-            };
-
-            lock (ContextClass.SyncRoot)
-            {
-                try
-                {
-                    ContextClass.Instance.AlarmRecords.Add(record);
-                    ContextClass.Instance.SaveChanges();
-                    alarmInfo.Id = record.Id;
-                }
-                catch
-                {
-                    alarmInfo.Id = 0;
-                }
+                alarmInfo.Id = 0;
             }
         }
     }
