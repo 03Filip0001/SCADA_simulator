@@ -89,6 +89,7 @@ namespace ScadaGUI
         public MainWindow(ITagBuilder builder)
         {
             InitializeComponent();
+            SystemLogger.Log("Application startup.");
 
             IOElements = new ObservableCollection<ITag>();
             ActiveAlarms = new ObservableCollection<AlarmInfo>();
@@ -199,6 +200,7 @@ namespace ScadaGUI
                 }
                 catch (Exception ex)
                 {
+                    SystemLogger.LogError("Tag creation failed.", ex);
                     MessageBox.Show($"Unable to create tag: {ex.Message}", "Create Tag", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
@@ -223,6 +225,7 @@ namespace ScadaGUI
                 }
                 catch (Exception ex)
                 {
+                    SystemLogger.LogError("Tag update failed.", ex);
                     MessageBox.Show($"Unable to update tag: {ex.Message}", "Update Tag", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
@@ -269,6 +272,7 @@ namespace ScadaGUI
             }
             catch (Exception ex)
             {
+                SystemLogger.LogError("Tag deletion failed.", ex);
                 MessageBox.Show($"Unable to delete tag: {ex.Message}", "Delete Tag", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -290,6 +294,7 @@ namespace ScadaGUI
             analogInput.ClearAlarm();
             RemoveActiveAlarmsForTag(analogInput.Name);
             DeleteAlarmConfiguration(analogInput.Name);
+            SystemLogger.Log($"Alarm deleted for tag: {analogInput.Name}");
             SyncActiveAlarmsFromTags();
             OnPropertyChanged(nameof(SelectedTag));
         }
@@ -315,6 +320,7 @@ namespace ScadaGUI
                         addwindow.DialogResultAlarmType,
                         addwindow.DialogResultAlarmPriority);
                     SaveAlarmConfiguration(alarmTarget);
+                    SystemLogger.Log($"Alarm created for tag: {alarmTarget.Name}");
                     SyncActiveAlarmsFromTags();
                 }
 
@@ -337,6 +343,7 @@ namespace ScadaGUI
             IOElements.Add(newTag);
             RegisterInputIfNeeded(newTag);
             SaveTag(newTag);
+            SystemLogger.Log($"Tag created: {newTag.Name}");
             FilteredIOElements.Refresh();
             SelectedTag = newTag;
         }
@@ -370,6 +377,7 @@ namespace ScadaGUI
             }
 
             SaveTag(tagToUpdate, oldName);
+            SystemLogger.Log($"Tag updated: {oldName} -> {tagToUpdate.Name}");
 
             if (!string.Equals(oldName, tagToUpdate.Name, StringComparison.OrdinalIgnoreCase))
             {
@@ -427,6 +435,7 @@ namespace ScadaGUI
             IOElements.Remove(tagToDelete);
             RemoveActiveAlarmsForTag(tagToDelete.Name);
             DeletePersistedTag(tagToDelete.Name);
+            SystemLogger.Log($"Tag deleted: {tagToDelete.Name}");
             FilteredIOElements.Refresh();
             SelectedTag = IOElements.FirstOrDefault();
             SyncActiveAlarmsFromTags();
@@ -491,6 +500,7 @@ namespace ScadaGUI
                     if (matchingTag is AnalogInput analogInput)
                     {
                         SaveAlarmConfiguration(analogInput);
+                        SystemLogger.Log($"Alarm acknowledged: {analogInput.Name}");
                     }
                 }
             }
@@ -516,32 +526,49 @@ namespace ScadaGUI
         {
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
-                var existingAlarm = ActiveAlarms.FirstOrDefault(alarm => alarm.TagName == alarmInfo.TagName);
+                AlarmInfo displayAlarm = alarmInfo;
+                string readError = null;
+                if (alarmInfo.Id != 0
+                    && PersistenceService.TryGetActivatedAlarm(alarmInfo.Id, out AlarmInfo databaseAlarm, out readError))
+                {
+                    databaseAlarm.Address = alarmInfo.Address;
+                    databaseAlarm.TriggeredValue = alarmInfo.TriggeredValue;
+                    displayAlarm = databaseAlarm;
+                }
+                else if (!string.IsNullOrWhiteSpace(readError))
+                {
+                    ShowPersistenceWarning(readError);
+                }
+
+                var existingAlarm = ActiveAlarms.FirstOrDefault(alarm => alarm.TagName == displayAlarm.TagName);
                 if (existingAlarm == null)
                 {
-                    ActiveAlarms.Add(alarmInfo);
+                    ActiveAlarms.Add(displayAlarm);
                 }
                 else
                 {
-                    existingAlarm.Id = alarmInfo.Id;
-                    existingAlarm.Address = alarmInfo.Address;
-                    existingAlarm.TriggeredValue = alarmInfo.TriggeredValue;
-                    existingAlarm.LowLimit = alarmInfo.LowLimit;
-                    existingAlarm.HighLimit = alarmInfo.HighLimit;
-                    existingAlarm.IsAcknowledged = alarmInfo.IsAcknowledged;
-                    existingAlarm.AlarmName = alarmInfo.AlarmName;
-                    existingAlarm.AlarmType = alarmInfo.AlarmType;
-                    existingAlarm.Priority = alarmInfo.Priority;
-                    existingAlarm.Message = alarmInfo.Message;
-                    existingAlarm.Timestamp = alarmInfo.Timestamp;
+                    existingAlarm.Id = displayAlarm.Id;
+                    existingAlarm.AlarmDefinitionId = displayAlarm.AlarmDefinitionId;
+                    existingAlarm.Address = displayAlarm.Address;
+                    existingAlarm.TriggeredValue = displayAlarm.TriggeredValue;
+                    existingAlarm.LowLimit = displayAlarm.LowLimit;
+                    existingAlarm.HighLimit = displayAlarm.HighLimit;
+                    existingAlarm.IsAcknowledged = displayAlarm.IsAcknowledged;
+                    existingAlarm.AlarmName = displayAlarm.AlarmName;
+                    existingAlarm.AlarmType = displayAlarm.AlarmType;
+                    existingAlarm.Priority = displayAlarm.Priority;
+                    existingAlarm.Message = displayAlarm.Message;
+                    existingAlarm.Timestamp = displayAlarm.Timestamp;
                     CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
                 }
 
-                var sourceTag = IOElements.OfType<AnalogInput>().FirstOrDefault(tag => tag.Name == alarmInfo.TagName);
+                var sourceTag = IOElements.OfType<AnalogInput>().FirstOrDefault(tag => tag.Name == displayAlarm.TagName);
                 if (sourceTag != null)
                 {
                     SaveAlarmConfiguration(sourceTag);
                 }
+
+                SystemLogger.Log($"Alarm event displayed for tag: {displayAlarm.TagName}");
 
                 SyncActiveAlarmsFromTags();
             }));
@@ -678,6 +705,7 @@ namespace ScadaGUI
                 "Database",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
+            SystemLogger.Log($"Persistence warning: {errorMessage}");
         }
 
         private void OnPropertyChanged(string propertyName)
@@ -705,6 +733,7 @@ namespace ScadaGUI
             }
 
             SaveAllTags(false);
+            SystemLogger.Log("Application shutdown.");
 
         }
     }

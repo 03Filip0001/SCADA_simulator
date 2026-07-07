@@ -1,87 +1,35 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
-using System.IO;
+using System.Linq;
 using Contracts;
 using DataConcentrator.Model;
-using Microsoft.Data.Sqlite;
-using SQLitePCL;
+using Microsoft.EntityFrameworkCore;
 
 namespace DataConcentrator.Persistence
 {
     public static class PersistenceService
     {
-        private static readonly object syncRoot = new object();
-        private static bool sqliteInitialized;
-
-        private static string DatabasePath =>
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "scada_data.db");
-
-        private static string ConnectionString =>
-            new SqliteConnectionStringBuilder { DataSource = DatabasePath }.ToString();
-
         public static bool Initialize(out string errorMessage)
         {
             errorMessage = null;
 
             try
             {
-                lock (syncRoot)
+                lock (ContextClass.SyncRoot)
                 {
-                    EnsureSqliteInitialized();
-                    using (var connection = OpenConnection())
+                    using (var context = new ContextClass())
                     {
-                        ExecuteNonQuery(connection, @"
-CREATE TABLE IF NOT EXISTS TagRecords (
-    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-    Name TEXT NOT NULL UNIQUE,
-    Type INTEGER NOT NULL,
-    Address TEXT NULL,
-    Description TEXT NULL,
-    CurrentValue REAL NULL,
-    CurrentState INTEGER NULL,
-    ScanTime REAL NULL,
-    ScanOn INTEGER NULL,
-    LowLimit REAL NULL,
-    HighLimit REAL NULL,
-    Units TEXT NULL,
-    Deadband REAL NULL,
-    Hysteresis REAL NULL
-);");
-
-                        ExecuteNonQuery(connection, @"
-CREATE TABLE IF NOT EXISTS AlarmConfigurationRecords (
-    TagRecordId INTEGER NOT NULL PRIMARY KEY,
-    AlarmName TEXT NULL,
-    AlarmType TEXT NULL,
-    Priority INTEGER NOT NULL,
-    LowLimit REAL NOT NULL,
-    HighLimit REAL NOT NULL,
-    Message TEXT NULL,
-    IsAcknowledged INTEGER NOT NULL,
-    IsActive INTEGER NOT NULL,
-    FOREIGN KEY(TagRecordId) REFERENCES TagRecords(Id) ON DELETE CASCADE
-);");
-
-                        ExecuteNonQuery(connection, @"
-CREATE TABLE IF NOT EXISTS AlarmRecords (
-    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-    TagName TEXT NULL,
-    Address TEXT NULL,
-    TriggeredValue REAL NOT NULL,
-    LowLimit REAL NOT NULL,
-    HighLimit REAL NOT NULL,
-    Message TEXT NULL,
-    Timestamp TEXT NOT NULL
-);");
+                        context.Database.EnsureCreated();
                     }
                 }
 
+                SystemLogger.Log("Application persistence initialized.");
                 return true;
             }
             catch (Exception ex)
             {
                 errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError("Failed to initialize persistence.", ex);
                 return false;
             }
         }
@@ -93,48 +41,43 @@ CREATE TABLE IF NOT EXISTS AlarmRecords (
 
             try
             {
-                lock (syncRoot)
+                lock (ContextClass.SyncRoot)
                 {
-                    using (var connection = OpenConnection())
-                    using (var command = connection.CreateCommand())
+                    using (var context = new ContextClass())
                     {
-                        command.CommandText = @"
-SELECT
-    t.Id, t.Name, t.Type, t.Address, t.Description, t.CurrentValue, t.CurrentState,
-    t.ScanTime, t.ScanOn, t.LowLimit, t.HighLimit, t.Units, t.Deadband, t.Hysteresis,
-    a.AlarmName, a.AlarmType, a.Priority, a.LowLimit AS AlarmLowLimit,
-    a.HighLimit AS AlarmHighLimit, a.Message, a.IsAcknowledged, a.IsActive
-FROM TagRecords t
-LEFT JOIN AlarmConfigurationRecords a ON a.TagRecordId = t.Id
-ORDER BY t.Id;";
+                        var records = context.Tags
+                            .Include(tag => tag.Alarms)
+                            .OrderBy(tag => tag.Name)
+                            .ToList();
 
-                        using (var reader = command.ExecuteReader())
+                        foreach (var record in records)
                         {
-                            while (reader.Read())
+                            var tagType = (Tag_Type)Enum.Parse(typeof(Tag_Type), record.Type);
+                            var tag = CreateTag(builder, tagType, record.Address);
+                            if (tag == null)
                             {
-                                var tagType = (Tag_Type)reader.GetInt32(reader.GetOrdinal("Type"));
-                                var tag = CreateTag(builder, tagType, GetString(reader, "Address"));
-                                if (tag == null)
-                                {
-                                    continue;
-                                }
-
-                                tag.Name = GetString(reader, "Name");
-                                tag.Type = tagType;
-                                tag.Address = GetString(reader, "Address");
-                                tag.Description = GetString(reader, "Description") ?? string.Empty;
-
-                                RestoreAnalogSettings(tag, reader);
-                                RestoreDigitalSettings(tag, reader);
-                                tags.Add(tag);
+                                continue;
                             }
+
+                            tag.Name = record.Name;
+                            tag.Type = tagType;
+                            tag.Address = record.Address;
+                            tag.Description = record.Description ?? string.Empty;
+
+                            RestoreAnalogSettings(tag, record);
+                            RestoreDigitalSettings(tag, record);
+
+                            tags.Add(tag);
                         }
                     }
                 }
+
+                SystemLogger.Log($"Loaded {tags.Count} tags from database.");
             }
             catch (Exception ex)
             {
                 errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError("Failed to load tags from database.", ex);
             }
 
             return tags;
@@ -151,33 +94,52 @@ ORDER BY t.Id;";
 
             try
             {
-                lock (syncRoot)
+                lock (ContextClass.SyncRoot)
                 {
-                    using (var connection = OpenConnection())
-                    using (var transaction = connection.BeginTransaction())
+                    using (var context = new ContextClass())
+                    using (var transaction = context.Database.BeginTransaction())
                     {
                         var lookupName = string.IsNullOrWhiteSpace(oldName) ? tag.Name : oldName;
-                        var tagId = GetTagId(connection, transaction, lookupName);
-                        if (!tagId.HasValue && !string.Equals(lookupName, tag.Name, StringComparison.OrdinalIgnoreCase))
+                        var record = context.Tags
+                            .Include(item => item.Alarms)
+                            .FirstOrDefault(item => item.Name == lookupName);
+
+                        if (record == null && !string.Equals(lookupName, tag.Name, StringComparison.OrdinalIgnoreCase))
                         {
-                            tagId = GetTagId(connection, transaction, tag.Name);
+                            record = context.Tags
+                                .Include(item => item.Alarms)
+                                .FirstOrDefault(item => item.Name == tag.Name);
                         }
 
-                        SaveTagRecord(connection, transaction, tag, tagId);
+                        if (record == null)
+                        {
+                            record = new TagEntity();
+                        }
+
+                        CopyTagToRecord(tag, record);
+                        if (context.Entry(record).State == EntityState.Detached)
+                        {
+                            context.Tags.Add(record);
+                        }
+                        context.SaveChanges();
+
                         if (tag is AnalogInput analogInput && analogInput.AlarmEnabled)
                         {
-                            SaveAlarmRecord(connection, transaction, analogInput);
+                            SaveAlarmRecord(context, analogInput);
                         }
 
+                        context.SaveChanges();
                         transaction.Commit();
                     }
                 }
 
+                SystemLogger.Log($"Tag saved: {tag.Name}");
                 return true;
             }
             catch (Exception ex)
             {
                 errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError($"Failed to save tag '{tag.Name}'.", ex);
                 return false;
             }
         }
@@ -193,30 +155,52 @@ ORDER BY t.Id;";
 
             try
             {
-                lock (syncRoot)
+                lock (ContextClass.SyncRoot)
                 {
-                    using (var connection = OpenConnection())
-                    using (var transaction = connection.BeginTransaction())
+                    using (var context = new ContextClass())
+                    using (var transaction = context.Database.BeginTransaction())
                     {
-                        SaveTagRecord(connection, transaction, tag, GetTagId(connection, transaction, tag.Name));
+                        var tagRecord = context.Tags
+                            .Include(item => item.Alarms)
+                            .FirstOrDefault(item => item.Name == tag.Name);
+
+                        if (tagRecord == null)
+                        {
+                            tagRecord = new TagEntity();
+                        }
+
+                        CopyTagToRecord(tag, tagRecord);
+                        if (context.Entry(tagRecord).State == EntityState.Detached)
+                        {
+                            context.Tags.Add(tagRecord);
+                        }
+                        context.SaveChanges();
+
                         if (tag.AlarmEnabled)
                         {
-                            SaveAlarmRecord(connection, transaction, tag);
+                            SaveAlarmRecord(context, tag);
                         }
                         else
                         {
-                            DeleteAlarmRecord(connection, transaction, tag.Name);
+                            var alarm = context.Alarms.FirstOrDefault(item => item.TagName == tag.Name);
+                            if (alarm != null)
+                            {
+                                context.Alarms.Remove(alarm);
+                            }
                         }
 
+                        context.SaveChanges();
                         transaction.Commit();
                     }
                 }
 
+                SystemLogger.Log($"Alarm saved for tag: {tag.Name}");
                 return true;
             }
             catch (Exception ex)
             {
                 errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError($"Failed to save alarm for tag '{tag.Name}'.", ex);
                 return false;
             }
         }
@@ -232,32 +216,93 @@ ORDER BY t.Id;";
 
             try
             {
-                lock (syncRoot)
+                lock (ContextClass.SyncRoot)
                 {
-                    using (var connection = OpenConnection())
-                    using (var command = connection.CreateCommand())
+                    using (var context = new ContextClass())
+                    using (var transaction = context.Database.BeginTransaction())
                     {
-                        command.CommandText = @"
-INSERT INTO AlarmRecords (TagName, Address, TriggeredValue, LowLimit, HighLimit, Message, Timestamp)
-VALUES ($tagName, $address, $triggeredValue, $lowLimit, $highLimit, $message, $timestamp);
-SELECT last_insert_rowid();";
-                        AddParameter(command, "$tagName", alarmInfo.TagName);
-                        AddParameter(command, "$address", alarmInfo.Address);
-                        AddParameter(command, "$triggeredValue", alarmInfo.TriggeredValue);
-                        AddParameter(command, "$lowLimit", alarmInfo.LowLimit);
-                        AddParameter(command, "$highLimit", alarmInfo.HighLimit);
-                        AddParameter(command, "$message", alarmInfo.Message);
-                        AddParameter(command, "$timestamp", alarmInfo.Timestamp.ToString("O"));
+                        var alarm = FindAlarmDefinition(context, alarmInfo);
+                        if (alarm == null)
+                        {
+                            errorMessage = "Alarm definition was not found.";
+                            SystemLogger.Log($"Alarm activation could not be saved for tag '{alarmInfo.TagName}' because no alarm definition exists.");
+                            return false;
+                        }
 
-                        alarmInfo.Id = Convert.ToInt32((long)command.ExecuteScalar());
+                        alarm.State = "Active";
+                        alarm.IsAcknowledged = false;
+
+                        var activation = new ActivatedAlarmEntity
+                        {
+                            Id = GetNextActivatedAlarmId(context),
+                            AlarmId = alarm.Id,
+                            TagName = alarmInfo.TagName,
+                            Message = alarmInfo.Message,
+                            Timestamp = alarmInfo.Timestamp
+                        };
+
+                        context.ActivatedAlarms.Add(activation);
+                        context.SaveChanges();
+                        transaction.Commit();
+
+                        alarmInfo.Id = activation.Id;
+                        alarmInfo.AlarmDefinitionId = alarm.Id;
                     }
                 }
 
+                SystemLogger.Log($"Alarm activated for tag: {alarmInfo.TagName}");
                 return true;
             }
             catch (Exception ex)
             {
                 errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError($"Failed to save alarm activation for tag '{alarmInfo.TagName}'.", ex);
+                return false;
+            }
+        }
+
+        public static bool TryGetActivatedAlarm(int activatedAlarmId, out AlarmInfo alarmInfo, out string errorMessage)
+        {
+            alarmInfo = null;
+            errorMessage = null;
+
+            try
+            {
+                lock (ContextClass.SyncRoot)
+                {
+                    using (var context = new ContextClass())
+                    {
+                        var activation = context.ActivatedAlarms
+                            .FirstOrDefault(item => item.Id == activatedAlarmId);
+                        if (activation == null)
+                        {
+                            return false;
+                        }
+
+                        var alarm = context.Alarms.FirstOrDefault(item => item.Id == activation.AlarmId);
+                        alarmInfo = new AlarmInfo
+                        {
+                            Id = activation.Id,
+                            AlarmDefinitionId = activation.AlarmId,
+                            TagName = activation.TagName,
+                            AlarmName = alarm?.Name ?? string.Empty,
+                            AlarmType = alarm?.ActivationType ?? string.Empty,
+                            Priority = alarm?.Priority ?? 0,
+                            LowLimit = alarm?.LowLimit ?? 0,
+                            HighLimit = alarm?.HighLimit ?? 0,
+                            IsAcknowledged = alarm?.IsAcknowledged ?? false,
+                            Message = activation.Message,
+                            Timestamp = activation.Timestamp
+                        };
+                    }
+                }
+
+                return alarmInfo != null;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError($"Failed to read activated alarm '{activatedAlarmId}'.", ex);
                 return false;
             }
         }
@@ -273,22 +318,26 @@ SELECT last_insert_rowid();";
 
             try
             {
-                lock (syncRoot)
+                lock (ContextClass.SyncRoot)
                 {
-                    using (var connection = OpenConnection())
-                    using (var command = connection.CreateCommand())
+                    using (var context = new ContextClass())
                     {
-                        command.CommandText = "DELETE FROM TagRecords WHERE Name = $name;";
-                        AddParameter(command, "$name", tagName);
-                        command.ExecuteNonQuery();
+                        var record = context.Tags.FirstOrDefault(item => item.Name == tagName);
+                        if (record != null)
+                        {
+                            context.Tags.Remove(record);
+                            context.SaveChanges();
+                        }
                     }
                 }
 
+                SystemLogger.Log($"Tag deleted: {tagName}");
                 return true;
             }
             catch (Exception ex)
             {
                 errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError($"Failed to delete tag '{tagName}'.", ex);
                 return false;
             }
         }
@@ -304,21 +353,26 @@ SELECT last_insert_rowid();";
 
             try
             {
-                lock (syncRoot)
+                lock (ContextClass.SyncRoot)
                 {
-                    using (var connection = OpenConnection())
-                    using (var transaction = connection.BeginTransaction())
+                    using (var context = new ContextClass())
                     {
-                        DeleteAlarmRecord(connection, transaction, tagName);
-                        transaction.Commit();
+                        var alarm = context.Alarms.FirstOrDefault(item => item.TagName == tagName);
+                        if (alarm != null)
+                        {
+                            context.Alarms.Remove(alarm);
+                            context.SaveChanges();
+                        }
                     }
                 }
 
+                SystemLogger.Log($"Alarm deleted for tag: {tagName}");
                 return true;
             }
             catch (Exception ex)
             {
                 errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError($"Failed to delete alarm for tag '{tagName}'.", ex);
                 return false;
             }
         }
@@ -334,28 +388,47 @@ SELECT last_insert_rowid();";
 
             try
             {
-                lock (syncRoot)
+                lock (ContextClass.SyncRoot)
                 {
-                    using (var connection = OpenConnection())
-                    using (var transaction = connection.BeginTransaction())
+                    using (var context = new ContextClass())
+                    using (var transaction = context.Database.BeginTransaction())
                     {
                         foreach (var tag in tags)
                         {
-                            SaveTagRecord(connection, transaction, tag, GetTagId(connection, transaction, tag.Name));
+                            var record = context.Tags
+                                .Include(item => item.Alarms)
+                                .FirstOrDefault(item => item.Name == tag.Name);
+
+                            if (record == null)
+                            {
+                                record = new TagEntity();
+                            }
+
+                            CopyTagToRecord(tag, record);
+                            if (context.Entry(record).State == EntityState.Detached)
+                            {
+                                context.Tags.Add(record);
+                            }
+                            context.SaveChanges();
 
                             if (tag is AnalogInput analogInput)
                             {
                                 if (analogInput.AlarmEnabled)
                                 {
-                                    SaveAlarmRecord(connection, transaction, analogInput);
+                                    SaveAlarmRecord(context, analogInput);
                                 }
                                 else
                                 {
-                                    DeleteAlarmRecord(connection, transaction, analogInput.Name);
+                                    var alarm = context.Alarms.FirstOrDefault(item => item.TagName == analogInput.Name);
+                                    if (alarm != null)
+                                    {
+                                        context.Alarms.Remove(alarm);
+                                    }
                                 }
                             }
                         }
 
+                        context.SaveChanges();
                         transaction.Commit();
                     }
                 }
@@ -365,28 +438,9 @@ SELECT last_insert_rowid();";
             catch (Exception ex)
             {
                 errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError("Failed to save all tags.", ex);
                 return false;
             }
-        }
-
-        private static void EnsureSqliteInitialized()
-        {
-            if (sqliteInitialized)
-            {
-                return;
-            }
-
-            Batteries.Init();
-            sqliteInitialized = true;
-        }
-
-        private static SqliteConnection OpenConnection()
-        {
-            EnsureSqliteInitialized();
-            var connection = new SqliteConnection(ConnectionString);
-            connection.Open();
-            ExecuteNonQuery(connection, "PRAGMA foreign_keys = ON;");
-            return connection;
         }
 
         private static ITag CreateTag(ITagBuilder builder, Tag_Type type, string address)
@@ -406,213 +460,138 @@ SELECT last_insert_rowid();";
             }
         }
 
-        private static void RestoreAnalogSettings(ITag tag, IDataRecord record)
+        private static void RestoreAnalogSettings(ITag tag, TagEntity record)
         {
             if (tag is IAnalogCommon analogCommon)
             {
-                analogCommon.LowLimit = GetDouble(record, "LowLimit") ?? analogCommon.LowLimit;
-                analogCommon.HighLimit = GetDouble(record, "HighLimit") ?? analogCommon.HighLimit;
-                analogCommon.Units = GetString(record, "Units") ?? analogCommon.Units;
+                analogCommon.LowLimit = record.LowLimit ?? analogCommon.LowLimit;
+                analogCommon.HighLimit = record.HighLimit ?? analogCommon.HighLimit;
+                analogCommon.Units = record.Units ?? analogCommon.Units;
             }
 
             if (tag is AnalogInput analogInput)
             {
-                analogInput.ScanTime = GetDouble(record, "ScanTime") ?? analogInput.ScanTime;
-                analogInput.ScanOn = GetBool(record, "ScanOn") ?? analogInput.ScanOn;
-                analogInput.Deadband = GetDouble(record, "Deadband") ?? analogInput.Deadband;
-                analogInput.Hysteresis = GetDouble(record, "Hysteresis") ?? analogInput.Hysteresis;
-                analogInput.RestoreCurrentValue(GetDouble(record, "CurrentValue") ?? 0);
+                analogInput.ScanTime = record.ScanTime ?? analogInput.ScanTime;
+                analogInput.ScanOn = record.ScanOn ?? analogInput.ScanOn;
+                analogInput.Deadband = record.Deadband ?? analogInput.Deadband;
+                analogInput.Hysteresis = record.Hysteresis ?? analogInput.Hysteresis;
+                analogInput.RestoreCurrentValue(record.CurrentValue ?? 0);
 
-                var alarmName = GetString(record, "AlarmName");
-                if (!string.IsNullOrWhiteSpace(alarmName))
+                var alarm = record.Alarms.FirstOrDefault();
+                if (alarm != null)
                 {
                     analogInput.ConfigureAlarm(
-                        GetDouble(record, "AlarmLowLimit") ?? analogInput.LowLimit,
-                        GetDouble(record, "AlarmHighLimit") ?? analogInput.HighLimit,
-                        GetString(record, "Message"),
-                        alarmName,
-                        GetString(record, "AlarmType"),
-                        GetInt(record, "Priority") ?? 0);
+                        alarm.LowLimit,
+                        alarm.HighLimit,
+                        alarm.Message,
+                        alarm.Name,
+                        alarm.ActivationType,
+                        alarm.Priority);
+                    analogInput.AlarmDefinitionId = alarm.Id;
                     analogInput.RestoreAlarmState(
-                        GetBool(record, "IsActive").GetValueOrDefault(),
-                        GetBool(record, "IsAcknowledged").GetValueOrDefault());
+                        string.Equals(alarm.State, "Active", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(alarm.State, "Acknowledged", StringComparison.OrdinalIgnoreCase),
+                        alarm.IsAcknowledged);
                 }
             }
         }
 
-        private static void RestoreDigitalSettings(ITag tag, IDataRecord record)
+        private static void RestoreDigitalSettings(ITag tag, TagEntity record)
         {
+            if (tag is DigitalInput digitalInput && record.CurrentState.HasValue)
+            {
+                digitalInput.RestoreCurrentState(record.CurrentState.Value);
+            }
+        }
+
+        private static void CopyTagToRecord(ITag tag, TagEntity record)
+        {
+            record.Name = tag.Name;
+            record.Type = tag.Type.ToString();
+            record.Address = tag.Address;
+            record.Description = tag.Description ?? string.Empty;
+
+            if (tag is IInputCommon inputCommon)
+            {
+                record.ScanTime = inputCommon.ScanTime;
+                record.ScanOn = inputCommon.ScanOn;
+            }
+
+            if (tag is IAnalogCommon analogCommon)
+            {
+                record.LowLimit = analogCommon.LowLimit;
+                record.HighLimit = analogCommon.HighLimit;
+                record.Units = analogCommon.Units;
+            }
+
+            if (tag is AnalogInput analogInput)
+            {
+                record.CurrentValue = analogInput.CurrentValue;
+                record.Deadband = analogInput.Deadband;
+                record.Hysteresis = analogInput.Hysteresis;
+            }
+
             if (tag is DigitalInput digitalInput)
             {
-                var currentState = GetBool(record, "CurrentState");
-                if (currentState.HasValue)
+                record.CurrentState = digitalInput.CurrentState;
+            }
+        }
+
+        private static void SaveAlarmRecord(ContextClass context, AnalogInput tag)
+        {
+            var alarm = context.Alarms.FirstOrDefault(item => item.TagName == tag.Name);
+            if (alarm == null)
+            {
+                alarm = new AlarmEntity
                 {
-                    digitalInput.RestoreCurrentState(currentState.Value);
+                    Id = tag.AlarmDefinitionId > 0 ? tag.AlarmDefinitionId : GetNextAlarmId(context),
+                    TagName = tag.Name
+                };
+                context.Alarms.Add(alarm);
+            }
+
+            alarm.Name = tag.AlarmName;
+            alarm.TagName = tag.Name;
+            alarm.ActivationType = string.IsNullOrWhiteSpace(tag.AlarmType) ? "Range" : tag.AlarmType;
+            alarm.LowLimit = tag.LowLimit;
+            alarm.HighLimit = tag.HighLimit;
+            alarm.BoundaryValue = alarm.ActivationType.Equals("Low", StringComparison.OrdinalIgnoreCase)
+                || alarm.ActivationType.Equals("Below", StringComparison.OrdinalIgnoreCase)
+                    ? tag.LowLimit
+                    : tag.HighLimit;
+            alarm.Message = tag.AlarmMessage;
+            alarm.Priority = tag.AlarmPriority;
+            alarm.IsAcknowledged = tag.AlarmAcknowledged;
+            alarm.State = tag.AlarmActive
+                ? tag.AlarmAcknowledged ? "Acknowledged" : "Active"
+                : "Inactive";
+            tag.AlarmDefinitionId = alarm.Id;
+        }
+
+        private static AlarmEntity FindAlarmDefinition(ContextClass context, AlarmInfo alarmInfo)
+        {
+            if (alarmInfo.AlarmDefinitionId > 0)
+            {
+                var byId = context.Alarms.FirstOrDefault(item => item.Id == alarmInfo.AlarmDefinitionId);
+                if (byId != null)
+                {
+                    return byId;
                 }
             }
+
+            return context.Alarms
+                .OrderBy(item => item.Id)
+                .FirstOrDefault(item => item.TagName == alarmInfo.TagName);
         }
 
-        private static int SaveTagRecord(SqliteConnection connection, SqliteTransaction transaction, ITag tag, int? existingTagId)
+        private static int GetNextAlarmId(ContextClass context)
         {
-            using (var command = connection.CreateCommand())
-            {
-                command.Transaction = transaction;
-
-                if (existingTagId.HasValue)
-                {
-                    command.CommandText = @"
-UPDATE TagRecords
-SET Name = $name, Type = $type, Address = $address, Description = $description,
-    CurrentValue = $currentValue, CurrentState = $currentState, ScanTime = $scanTime,
-    ScanOn = $scanOn, LowLimit = $lowLimit, HighLimit = $highLimit, Units = $units,
-    Deadband = $deadband, Hysteresis = $hysteresis
-WHERE Id = $id;";
-                    AddParameter(command, "$id", existingTagId.Value);
-                }
-                else
-                {
-                    command.CommandText = @"
-INSERT INTO TagRecords
-    (Name, Type, Address, Description, CurrentValue, CurrentState, ScanTime,
-     ScanOn, LowLimit, HighLimit, Units, Deadband, Hysteresis)
-VALUES
-    ($name, $type, $address, $description, $currentValue, $currentState, $scanTime,
-     $scanOn, $lowLimit, $highLimit, $units, $deadband, $hysteresis);";
-                }
-
-                AddTagParameters(command, tag);
-                command.ExecuteNonQuery();
-            }
-
-            return existingTagId ?? GetTagId(connection, transaction, tag.Name).Value;
+            return context.Alarms.Any() ? context.Alarms.Max(item => item.Id) + 1 : 1;
         }
 
-        private static void SaveAlarmRecord(SqliteConnection connection, SqliteTransaction transaction, AnalogInput tag)
+        private static int GetNextActivatedAlarmId(ContextClass context)
         {
-            var tagId = GetTagId(connection, transaction, tag.Name);
-            if (!tagId.HasValue)
-            {
-                tagId = SaveTagRecord(connection, transaction, tag, null);
-            }
-
-            using (var command = connection.CreateCommand())
-            {
-                command.Transaction = transaction;
-                command.CommandText = @"
-INSERT INTO AlarmConfigurationRecords
-    (TagRecordId, AlarmName, AlarmType, Priority, LowLimit, HighLimit, Message, IsAcknowledged, IsActive)
-VALUES
-    ($tagRecordId, $alarmName, $alarmType, $priority, $lowLimit, $highLimit, $message, $isAcknowledged, $isActive)
-ON CONFLICT(TagRecordId) DO UPDATE SET
-    AlarmName = excluded.AlarmName,
-    AlarmType = excluded.AlarmType,
-    Priority = excluded.Priority,
-    LowLimit = excluded.LowLimit,
-    HighLimit = excluded.HighLimit,
-    Message = excluded.Message,
-    IsAcknowledged = excluded.IsAcknowledged,
-    IsActive = excluded.IsActive;";
-                AddParameter(command, "$tagRecordId", tagId.Value);
-                AddParameter(command, "$alarmName", tag.AlarmName);
-                AddParameter(command, "$alarmType", tag.AlarmType);
-                AddParameter(command, "$priority", tag.AlarmPriority);
-                AddParameter(command, "$lowLimit", tag.LowLimit);
-                AddParameter(command, "$highLimit", tag.HighLimit);
-                AddParameter(command, "$message", tag.AlarmMessage);
-                AddParameter(command, "$isAcknowledged", tag.AlarmAcknowledged);
-                AddParameter(command, "$isActive", tag.AlarmActive);
-                command.ExecuteNonQuery();
-            }
-        }
-
-        private static void DeleteAlarmRecord(SqliteConnection connection, SqliteTransaction transaction, string tagName)
-        {
-            var tagId = GetTagId(connection, transaction, tagName);
-            if (!tagId.HasValue)
-            {
-                return;
-            }
-
-            using (var command = connection.CreateCommand())
-            {
-                command.Transaction = transaction;
-                command.CommandText = "DELETE FROM AlarmConfigurationRecords WHERE TagRecordId = $tagRecordId;";
-                AddParameter(command, "$tagRecordId", tagId.Value);
-                command.ExecuteNonQuery();
-            }
-        }
-
-        private static int? GetTagId(SqliteConnection connection, SqliteTransaction transaction, string tagName)
-        {
-            if (string.IsNullOrWhiteSpace(tagName))
-            {
-                return null;
-            }
-
-            using (var command = connection.CreateCommand())
-            {
-                command.Transaction = transaction;
-                command.CommandText = "SELECT Id FROM TagRecords WHERE Name = $name;";
-                AddParameter(command, "$name", tagName);
-                var result = command.ExecuteScalar();
-                return result == null || result == DBNull.Value ? (int?)null : Convert.ToInt32(result);
-            }
-        }
-
-        private static void AddTagParameters(SqliteCommand command, ITag tag)
-        {
-            AddParameter(command, "$name", tag.Name);
-            AddParameter(command, "$type", (int)tag.Type);
-            AddParameter(command, "$address", tag.Address);
-            AddParameter(command, "$description", tag.Description);
-
-            AddParameter(command, "$currentValue", tag is AnalogInput analogInput ? (object)analogInput.CurrentValue : DBNull.Value);
-            AddParameter(command, "$currentState", tag is DigitalInput digitalInput ? (object)digitalInput.CurrentState : DBNull.Value);
-            AddParameter(command, "$scanTime", tag is IInputCommon input ? (object)input.ScanTime : DBNull.Value);
-            AddParameter(command, "$scanOn", tag is IInputCommon inputCommon ? (object)inputCommon.ScanOn : DBNull.Value);
-            AddParameter(command, "$lowLimit", tag is IAnalogCommon analog ? (object)analog.LowLimit : DBNull.Value);
-            AddParameter(command, "$highLimit", tag is IAnalogCommon analogCommon ? (object)analogCommon.HighLimit : DBNull.Value);
-            AddParameter(command, "$units", tag is IAnalogCommon analogUnits ? (object)analogUnits.Units : DBNull.Value);
-            AddParameter(command, "$deadband", tag is AnalogInput deadbandInput ? (object)deadbandInput.Deadband : DBNull.Value);
-            AddParameter(command, "$hysteresis", tag is AnalogInput hysteresisInput ? (object)hysteresisInput.Hysteresis : DBNull.Value);
-        }
-
-        private static void ExecuteNonQuery(SqliteConnection connection, string commandText)
-        {
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = commandText;
-                command.ExecuteNonQuery();
-            }
-        }
-
-        private static void AddParameter(SqliteCommand command, string name, object value)
-        {
-            command.Parameters.AddWithValue(name, value ?? DBNull.Value);
-        }
-
-        private static string GetString(IDataRecord record, string name)
-        {
-            var ordinal = record.GetOrdinal(name);
-            return record.IsDBNull(ordinal) ? null : record.GetString(ordinal);
-        }
-
-        private static double? GetDouble(IDataRecord record, string name)
-        {
-            var ordinal = record.GetOrdinal(name);
-            return record.IsDBNull(ordinal) ? (double?)null : Convert.ToDouble(record.GetValue(ordinal));
-        }
-
-        private static int? GetInt(IDataRecord record, string name)
-        {
-            var ordinal = record.GetOrdinal(name);
-            return record.IsDBNull(ordinal) ? (int?)null : Convert.ToInt32(record.GetValue(ordinal));
-        }
-
-        private static bool? GetBool(IDataRecord record, string name)
-        {
-            var ordinal = record.GetOrdinal(name);
-            return record.IsDBNull(ordinal) ? (bool?)null : Convert.ToInt32(record.GetValue(ordinal)) != 0;
+            return context.ActivatedAlarms.Any() ? context.ActivatedAlarms.Max(item => item.Id) + 1 : 1;
         }
 
         private static string GetInnermostMessage(Exception ex)

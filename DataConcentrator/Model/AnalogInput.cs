@@ -30,6 +30,7 @@ namespace DataConcentrator.Model
         public string AlarmName { get; set; }
         public string AlarmType { get; set; }
         public int AlarmPriority { get; set; }
+        public int AlarmDefinitionId { get; set; }
 
         public bool AlarmActive
         {
@@ -107,6 +108,7 @@ namespace DataConcentrator.Model
             AlarmName = string.Empty;
             AlarmType = string.Empty;
             AlarmPriority = 0;
+            AlarmDefinitionId = 0;
             AlarmMessage = string.Empty;
         }
 
@@ -165,6 +167,7 @@ namespace DataConcentrator.Model
             AlarmName = string.Empty;
             AlarmType = string.Empty;
             AlarmPriority = 0;
+            AlarmDefinitionId = 0;
             AlarmMessage = string.Empty;
             alarmEvaluationPending = false;
             OnPropertyChanged(nameof(AlarmEnabled));
@@ -248,6 +251,7 @@ namespace DataConcentrator.Model
                     LowLimit = LowLimit,
                     HighLimit = HighLimit,
                     IsAcknowledged = AlarmAcknowledged,
+                    AlarmDefinitionId = AlarmDefinitionId,
                     AlarmName = AlarmName,
                     AlarmType = AlarmType,
                     Priority = AlarmPriority,
@@ -304,6 +308,7 @@ namespace DataConcentrator.Model
         public double LowLimit { get; set; }
         public double HighLimit { get; set; }
         public bool IsAcknowledged { get; set; }
+        public int AlarmDefinitionId { get; set; }
         public string AlarmName { get; set; }
         public string AlarmType { get; set; }
         public int Priority { get; set; }
