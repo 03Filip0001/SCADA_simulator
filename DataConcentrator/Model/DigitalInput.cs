@@ -23,8 +23,15 @@ namespace DataConcentrator.Model
                 {
                     currentState = value;
                     OnPropertyChanged(nameof(CurrentState));
+                    OnPropertyChanged(nameof(CurrentValue));
                 }
             }
+        }
+
+        public override double CurrentValue
+        {
+            get => currentState ? 1.0 : 0.0;
+            protected set { }
         }
 
         public DigitalInput(string address)
