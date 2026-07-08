@@ -48,4 +48,18 @@ namespace DataConcentrator
         public string Message { get; set; }
         public DateTime Timestamp { get; set; }
     }
+
+    public class AnalogInputHistoryEntity
+    {
+        public int Id { get; set; }
+        public string TagName { get; set; }
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    public class AppSettingEntity
+    {
+        public string Key { get; set; }
+        public string Value { get; set; }
+    }
 }

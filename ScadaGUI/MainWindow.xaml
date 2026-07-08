@@ -27,11 +27,11 @@
                           ItemsSource="{Binding TagFilterOptions}"
                           SelectedItem="{Binding SelectedTagTypeFilter, UpdateSourceTrigger=PropertyChanged}"/>
                 <Button Content="Open History" Width="120" Margin="10,0,0,0" Click="Button_ShowHistory"/>
+                <Button x:Name="ThemeToggleButton" Content="Switch to Dark" Width="120" Margin="10,0,0,0" Click="Button_ToggleTheme"/>
             </StackPanel>
 
             <DataGrid Grid.Row="1"
                       ItemsSource="{Binding FilteredIOElements}"
-                      AlternatingRowBackground="#F2F2F2"
                       AutoGenerateColumns="False"
                       SelectedItem="{Binding SelectedTag, Mode=TwoWay}"
                       IsReadOnly="True"

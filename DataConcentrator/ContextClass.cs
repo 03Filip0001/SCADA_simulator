@@ -13,6 +13,8 @@ namespace DataConcentrator
         public DbSet<TagEntity> Tags { get; set; }
         public DbSet<AlarmEntity> Alarms { get; set; }
         public DbSet<ActivatedAlarmEntity> ActivatedAlarms { get; set; }
+        public DbSet<AnalogInputHistoryEntity> AnalogInputHistory { get; set; }
+        public DbSet<AppSettingEntity> AppSettings { get; set; }
 
         public static string DatabasePath =>
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "scada_data.db");
@@ -54,6 +56,19 @@ namespace DataConcentrator
                 entity.Property(alarm => alarm.Id).ValueGeneratedNever();
                 entity.Property(alarm => alarm.TagName).IsRequired();
                 entity.Property(alarm => alarm.Message).IsRequired(false);
+            });
+
+            modelBuilder.Entity<AnalogInputHistoryEntity>(entity =>
+            {
+                entity.ToTable("AnalogInputHistory");
+                entity.HasKey(record => record.Id);
+                entity.Property(record => record.TagName).IsRequired();
+            });
+
+            modelBuilder.Entity<AppSettingEntity>(entity =>
+            {
+                entity.ToTable("AppSettings");
+                entity.HasKey(setting => setting.Key);
             });
         }
     }

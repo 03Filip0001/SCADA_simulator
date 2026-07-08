@@ -88,7 +88,10 @@ namespace ScadaGUI
 
         public MainWindow(ITagBuilder builder)
         {
+            PersistenceService.Initialize(out _);
+            ThemeManager.Initialize();
             InitializeComponent();
+            UpdateThemeToggleButtonContent();
             SystemLogger.Log("Application startup.");
 
             IOElements = new ObservableCollection<ITag>();
@@ -455,6 +458,20 @@ namespace ScadaGUI
             }
 
             UpdateAcknowledgeButtonState();
+        }
+
+        private void Button_ToggleTheme(object sender, RoutedEventArgs e)
+        {
+            ThemeManager.ToggleTheme();
+            UpdateThemeToggleButtonContent();
+        }
+
+        private void UpdateThemeToggleButtonContent()
+        {
+            if (ThemeToggleButton != null)
+            {
+                ThemeToggleButton.Content = ThemeManager.CurrentTheme == AppTheme.Dark ? "Switch to Light" : "Switch to Dark";
+            }
         }
 
         private void Button_ShowHistory(object sender, RoutedEventArgs e)

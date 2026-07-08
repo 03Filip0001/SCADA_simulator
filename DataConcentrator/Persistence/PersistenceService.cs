@@ -9,6 +9,8 @@ namespace DataConcentrator.Persistence
 {
     public static class PersistenceService
     {
+        private const string ThemeSettingKey = "Theme";
+
         public static bool Initialize(out string errorMessage)
         {
             errorMessage = null;
@@ -20,6 +22,7 @@ namespace DataConcentrator.Persistence
                     using (var context = new ContextClass())
                     {
                         context.Database.EnsureCreated();
+                        EnsureAdditionalTables(context);
                     }
                 }
 
@@ -32,6 +35,27 @@ namespace DataConcentrator.Persistence
                 SystemLogger.LogError("Failed to initialize persistence.", ex);
                 return false;
             }
+        }
+
+        // EnsureCreated() only creates the schema when the database file doesn't exist yet,
+        // so databases created before these tables were added need them added explicitly.
+        private static void EnsureAdditionalTables(ContextClass context)
+        {
+            context.Database.ExecuteSqlRaw(
+                "CREATE TABLE IF NOT EXISTS \"AnalogInputHistory\" (" +
+                "\"Id\" INTEGER NOT NULL CONSTRAINT \"PK_AnalogInputHistory\" PRIMARY KEY AUTOINCREMENT, " +
+                "\"TagName\" TEXT NOT NULL, " +
+                "\"Timestamp\" TEXT NOT NULL, " +
+                "\"Value\" REAL NOT NULL)");
+
+            context.Database.ExecuteSqlRaw(
+                "CREATE INDEX IF NOT EXISTS \"IX_AnalogInputHistory_TagName_Timestamp\" " +
+                "ON \"AnalogInputHistory\" (\"TagName\", \"Timestamp\")");
+
+            context.Database.ExecuteSqlRaw(
+                "CREATE TABLE IF NOT EXISTS \"AppSettings\" (" +
+                "\"Key\" TEXT NOT NULL CONSTRAINT \"PK_AppSettings\" PRIMARY KEY, " +
+                "\"Value\" TEXT NULL)");
         }
 
         public static IList<ITag> LoadTags(ITagBuilder builder, out string errorMessage)
@@ -373,6 +397,133 @@ namespace DataConcentrator.Persistence
             {
                 errorMessage = GetInnermostMessage(ex);
                 SystemLogger.LogError($"Failed to delete alarm for tag '{tagName}'.", ex);
+                return false;
+            }
+        }
+
+        public static bool SaveHistoryRecord(string tagName, AnalogInputHistoryRecord record, out string errorMessage)
+        {
+            errorMessage = null;
+
+            if (string.IsNullOrWhiteSpace(tagName) || record == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                lock (ContextClass.SyncRoot)
+                {
+                    using (var context = new ContextClass())
+                    {
+                        context.AnalogInputHistory.Add(new AnalogInputHistoryEntity
+                        {
+                            TagName = tagName,
+                            Timestamp = record.Timestamp,
+                            Value = record.Value
+                        });
+                        context.SaveChanges();
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError($"Failed to save history record for tag '{tagName}'.", ex);
+                return false;
+            }
+        }
+
+        public static List<AnalogInputHistoryRecord> GetHistory(string tagName, out string errorMessage)
+        {
+            errorMessage = null;
+            var records = new List<AnalogInputHistoryRecord>();
+
+            if (string.IsNullOrWhiteSpace(tagName))
+            {
+                return records;
+            }
+
+            try
+            {
+                lock (ContextClass.SyncRoot)
+                {
+                    using (var context = new ContextClass())
+                    {
+                        records = context.AnalogInputHistory
+                            .Where(item => item.TagName == tagName)
+                            .OrderBy(item => item.Timestamp)
+                            .Select(item => new AnalogInputHistoryRecord
+                            {
+                                Timestamp = item.Timestamp,
+                                Value = item.Value,
+                                SourceAddress = tagName
+                            })
+                            .ToList();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError($"Failed to load history for tag '{tagName}'.", ex);
+            }
+
+            return records;
+        }
+
+        public static string LoadTheme(out string errorMessage)
+        {
+            errorMessage = null;
+
+            try
+            {
+                lock (ContextClass.SyncRoot)
+                {
+                    using (var context = new ContextClass())
+                    {
+                        return context.AppSettings.FirstOrDefault(item => item.Key == ThemeSettingKey)?.Value;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError("Failed to load theme setting.", ex);
+                return null;
+            }
+        }
+
+        public static bool SaveTheme(string themeName, out string errorMessage)
+        {
+            errorMessage = null;
+
+            try
+            {
+                lock (ContextClass.SyncRoot)
+                {
+                    using (var context = new ContextClass())
+                    {
+                        var setting = context.AppSettings.FirstOrDefault(item => item.Key == ThemeSettingKey);
+                        if (setting == null)
+                        {
+                            setting = new AppSettingEntity { Key = ThemeSettingKey };
+                            context.AppSettings.Add(setting);
+                        }
+
+                        setting.Value = themeName;
+                        context.SaveChanges();
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError("Failed to save theme setting.", ex);
                 return false;
             }
         }

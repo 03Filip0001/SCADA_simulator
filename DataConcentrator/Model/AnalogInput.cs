@@ -213,6 +213,8 @@ namespace DataConcentrator.Model
             OnPropertyChanged(nameof(AverageValue));
             OnPropertyChanged(nameof(MinValue));
             OnPropertyChanged(nameof(MaxValue));
+
+            PersistenceService.SaveHistoryRecord(Name, record, out _);
         }
 
         private void EvaluateAlarm(double value)
