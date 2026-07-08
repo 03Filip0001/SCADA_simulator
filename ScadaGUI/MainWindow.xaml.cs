@@ -655,6 +655,7 @@ namespace ScadaGUI
 
             CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
             UpdateAcknowledgeButtonState();
+            AlarmSoundService.UpdateState(activeInputs.Any(tag => !tag.AlarmAcknowledged));
             SaveRuntimeStateIfDue();
         }
 
@@ -733,6 +734,7 @@ namespace ScadaGUI
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             alarmRefreshTimer?.Stop();
+            AlarmSoundService.UpdateState(false);
 
             // Stop all scanning threads
             foreach (var tag in IOElements)
