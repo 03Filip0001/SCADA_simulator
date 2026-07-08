@@ -21,6 +21,16 @@ namespace ScadaGUI
     /// </summary>
     public partial class AddWindow : Window
     {
+        // The fixed set of I/O addresses the PLC Simulator exposes (ADDR001-ADDR016;
+        // see PLCSimulatorManager). Kept here rather than modifying that project.
+        private static readonly HashSet<string> ValidPlcAddresses = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "ADDR001", "ADDR002", "ADDR003", "ADDR004",
+            "ADDR005", "ADDR006", "ADDR007", "ADDR008",
+            "ADDR009", "ADDR010", "ADDR011", "ADDR012", "ADDR013",
+            "ADDR014", "ADDR015", "ADDR016"
+        };
+
         private readonly List<ITag> existingTags;
         private readonly ITag tagToEdit;
 
@@ -95,6 +105,7 @@ namespace ScadaGUI
                 }
             }
 
+            UpdateCreateButtonState();
         }
 
         public void Dropdown_Changed(object sender, RoutedEventArgs e)
@@ -102,9 +113,9 @@ namespace ScadaGUI
             ComboBox dropdown = this.FindName("Dropdown") as ComboBox;
             StackPanel panelIO = this.FindName("panelIO") as StackPanel;
             StackPanel panelAlarm = this.FindName("panelAlarm") as StackPanel;
-            
+
             if (dropdown?.SelectedItem == null) return;
-            
+
             var item = dropdown.SelectedItem;
 
             Debug.WriteLine(item.ToString());
@@ -124,6 +135,16 @@ namespace ScadaGUI
             {
                 if (panelIO != null) panelIO.Visibility = Visibility.Collapsed;
                 if (panelAlarm != null) panelAlarm.Visibility = Visibility.Collapsed;
+            }
+
+            UpdateCreateButtonState();
+        }
+
+        private void UpdateCreateButtonState()
+        {
+            if (CreateButton != null)
+            {
+                CreateButton.IsEnabled = Dropdown?.SelectedItem?.ToString() != "None";
             }
         }
 
@@ -177,6 +198,12 @@ namespace ScadaGUI
                 if (string.IsNullOrWhiteSpace(this.DialogResultAddress))
                 {
                     MessageBox.Show("Tag address is required.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (!ValidPlcAddresses.Contains(this.DialogResultAddress))
+                {
+                    MessageBox.Show($"'{this.DialogResultAddress}' is not a valid PLC Simulator address.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
