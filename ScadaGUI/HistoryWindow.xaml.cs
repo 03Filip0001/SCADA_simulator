@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using Contracts;
 using DataConcentrator.Model;
 using DataConcentrator.Persistence;
@@ -21,9 +22,16 @@ namespace ScadaGUI
         private const double TopMargin = 22;
         private const double BottomMargin = 28;
 
-        private readonly AnalogInput analogTag;
-        private readonly List<AnalogInputHistoryRecord> historyRecords = new List<AnalogInputHistoryRecord>();
+        private static readonly TimeSpan RollingWindowDuration = TimeSpan.FromMinutes(10);
 
+        private readonly AnalogInput analogTag;
+
+        // Bounded to the last RollingWindowDuration: new samples are appended at
+        // the back, aged-out samples are trimmed from the front, so this never
+        // grows with total application runtime.
+        private readonly LinkedList<AnalogInputHistoryRecord> windowRecords = new LinkedList<AnalogInputHistoryRecord>();
+
+        private DispatcherTimer scrollTimer;
         private bool chartElementsBuilt;
         private Polyline dataPolyline;
         private Line highLimitLine;
@@ -56,22 +64,40 @@ namespace ScadaGUI
                 return;
             }
 
-            var loadedRecords = PersistenceService.GetHistory(analogTag.Name, out string errorMessage);
+            var windowStartUtc = DateTime.UtcNow - RollingWindowDuration;
+            var loadedRecords = PersistenceService.GetHistory(analogTag.Name, out string errorMessage, windowStartUtc);
             if (!string.IsNullOrWhiteSpace(errorMessage))
             {
                 MessageBox.Show($"Unable to load history: {errorMessage}", "History", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
-            historyRecords.AddRange(loadedRecords);
+            foreach (var record in loadedRecords)
+            {
+                windowRecords.AddLast(record);
+            }
 
             EnsureChartElementsBuilt();
 
             analogTag.HistoryRecorded += OnHistoryRecorded;
             Closed += HistoryWindow_Closed;
 
-            if (!historyRecords.Any())
+            scrollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            scrollTimer.Tick += (sender, args) =>
             {
-                ShowMessage("No historical data available for this tag yet. The graph updates automatically as new values are recorded.");
+                TrimWindow();
+                if (!windowRecords.Any())
+                {
+                    ShowMessage("No historical data available for this tag in the last 10 minutes. The graph updates automatically as new values are recorded.");
+                }
+
+                UpdateStatsText();
+                UpdateChart();
+            };
+            scrollTimer.Start();
+
+            if (!windowRecords.Any())
+            {
+                ShowMessage("No historical data available for this tag in the last 10 minutes. The graph updates automatically as new values are recorded.");
             }
             else
             {
@@ -84,6 +110,8 @@ namespace ScadaGUI
 
         private void HistoryWindow_Closed(object sender, EventArgs e)
         {
+            scrollTimer?.Stop();
+
             if (analogTag != null)
             {
                 analogTag.HistoryRecorded -= OnHistoryRecorded;
@@ -94,24 +122,37 @@ namespace ScadaGUI
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                historyRecords.Add(record);
+                windowRecords.AddLast(record);
+                TrimWindow();
                 NoDataText.Visibility = Visibility.Collapsed;
                 UpdateStatsText();
                 UpdateChart();
             }));
         }
 
+        // Drops samples older than the rolling window from the front of the
+        // buffer. Runs on every new sample and on a 1s timer so the window
+        // keeps sliding forward even during quiet periods between samples.
+        private void TrimWindow()
+        {
+            var cutoff = DateTime.UtcNow - RollingWindowDuration;
+            while (windowRecords.First != null && windowRecords.First.Value.Timestamp < cutoff)
+            {
+                windowRecords.RemoveFirst();
+            }
+        }
+
         private void UpdateStatsText()
         {
-            if (!historyRecords.Any())
+            if (!windowRecords.Any())
             {
                 MinText.Text = MaxText.Text = AverageText.Text = "n/a";
                 return;
             }
 
-            MinText.Text = historyRecords.Min(record => record.Value).ToString("F2");
-            MaxText.Text = historyRecords.Max(record => record.Value).ToString("F2");
-            AverageText.Text = historyRecords.Average(record => record.Value).ToString("F2");
+            MinText.Text = windowRecords.Min(record => record.Value).ToString("F2");
+            MaxText.Text = windowRecords.Max(record => record.Value).ToString("F2");
+            AverageText.Text = windowRecords.Average(record => record.Value).ToString("F2");
         }
 
         private void ShowMessage(string message)
@@ -192,7 +233,7 @@ namespace ScadaGUI
 
         private void UpdateChart()
         {
-            if (!chartElementsBuilt || !historyRecords.Any())
+            if (!chartElementsBuilt || !windowRecords.Any())
             {
                 return;
             }
@@ -204,8 +245,8 @@ namespace ScadaGUI
                 return;
             }
 
-            double valueMin = historyRecords.Min(record => record.Value);
-            double valueMax = historyRecords.Max(record => record.Value);
+            double valueMin = windowRecords.Min(record => record.Value);
+            double valueMax = windowRecords.Max(record => record.Value);
 
             if (analogTag.AlarmEnabled)
             {
@@ -230,8 +271,8 @@ namespace ScadaGUI
             double plotTop = TopMargin;
             double plotHeight = Math.Max(height - TopMargin - BottomMargin, 1);
 
-            DateTime timeMin = historyRecords.First().Timestamp;
-            DateTime timeMax = historyRecords.Last().Timestamp;
+            DateTime timeMin = windowRecords.First.Value.Timestamp;
+            DateTime timeMax = windowRecords.Last.Value.Timestamp;
             double timeSpan = (timeMax - timeMin).TotalSeconds;
             if (timeSpan <= 0)
             {
@@ -247,7 +288,7 @@ namespace ScadaGUI
 
             dataPolyline.Stroke = themeResources["ChartLineBrush"] as Brush ?? Brushes.SteelBlue;
             dataPolyline.Points.Clear();
-            foreach (var record in historyRecords)
+            foreach (var record in windowRecords)
             {
                 dataPolyline.Points.Add(new Point(XFor(record.Timestamp), YFor(record.Value)));
             }

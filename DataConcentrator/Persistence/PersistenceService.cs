@@ -436,7 +436,7 @@ namespace DataConcentrator.Persistence
             }
         }
 
-        public static List<AnalogInputHistoryRecord> GetHistory(string tagName, out string errorMessage)
+        public static List<AnalogInputHistoryRecord> GetHistory(string tagName, out string errorMessage, DateTime? sinceUtc = null)
         {
             errorMessage = null;
             var records = new List<AnalogInputHistoryRecord>();
@@ -452,8 +452,13 @@ namespace DataConcentrator.Persistence
                 {
                     using (var context = new ContextClass())
                     {
-                        records = context.AnalogInputHistory
-                            .Where(item => item.TagName == tagName)
+                        var query = context.AnalogInputHistory.Where(item => item.TagName == tagName);
+                        if (sinceUtc.HasValue)
+                        {
+                            query = query.Where(item => item.Timestamp >= sinceUtc.Value);
+                        }
+
+                        records = query
                             .OrderBy(item => item.Timestamp)
                             .Select(item => new AnalogInputHistoryRecord
                             {
