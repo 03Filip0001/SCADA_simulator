@@ -241,7 +241,11 @@ namespace ScadaGUI
             double YFor(double value) => plotTop + (1 - (value - valueMin) / range) * plotHeight;
             double XFor(DateTime timestamp) => plotLeft + (timestamp - timeMin).TotalSeconds / timeSpan * plotWidth;
 
-            dataPolyline.Stroke = Application.Current.Resources["ChartLineBrush"] as Brush ?? Brushes.SteelBlue;
+            var themeResources = Application.Current.Resources;
+            var gridLineBrush = themeResources["GridLineBrush"] as Brush ?? Brushes.Gray;
+            var axisTextBrush = themeResources["SecondaryForegroundBrush"] as Brush ?? Brushes.Gray;
+
+            dataPolyline.Stroke = themeResources["ChartLineBrush"] as Brush ?? Brushes.SteelBlue;
             dataPolyline.Points.Clear();
             foreach (var record in historyRecords)
             {
@@ -254,11 +258,13 @@ namespace ScadaGUI
                 double value = valueMax - fraction * range;
                 double y = YFor(value);
 
+                yGridLines[i].Stroke = gridLineBrush;
                 yGridLines[i].X1 = plotLeft;
                 yGridLines[i].X2 = plotLeft + plotWidth;
                 yGridLines[i].Y1 = y;
                 yGridLines[i].Y2 = y;
 
+                yGridLabels[i].Foreground = axisTextBrush;
                 yGridLabels[i].Text = value.ToString("F1");
                 Canvas.SetLeft(yGridLabels[i], 2);
                 Canvas.SetTop(yGridLabels[i], y - 7);
@@ -270,11 +276,13 @@ namespace ScadaGUI
                 DateTime timestamp = timeMin.AddSeconds(fraction * timeSpan);
                 double x = XFor(timestamp);
 
+                xGridLines[i].Stroke = gridLineBrush;
                 xGridLines[i].Y1 = plotTop;
                 xGridLines[i].Y2 = plotTop + plotHeight;
                 xGridLines[i].X1 = x;
                 xGridLines[i].X2 = x;
 
+                xGridLabels[i].Foreground = axisTextBrush;
                 xGridLabels[i].Text = timestamp.ToLocalTime().ToString("HH:mm:ss");
                 Canvas.SetLeft(xGridLabels[i], Math.Max(0, Math.Min(x - 20, plotLeft + plotWidth - 40)));
                 Canvas.SetTop(xGridLabels[i], plotTop + plotHeight + 4);

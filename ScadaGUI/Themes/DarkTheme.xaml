@@ -1,9 +1,11 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System.Windows;assembly=PresentationFramework">
 
     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FF1E1E1E"/>
     <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#FF2D2D30"/>
     <SolidColorBrush x:Key="PrimaryForegroundBrush" Color="#FFE0E0E0"/>
+    <SolidColorBrush x:Key="SecondaryForegroundBrush" Color="#FFA8A8A8"/>
     <SolidColorBrush x:Key="ControlBackgroundBrush" Color="#FF3C3C3C"/>
     <SolidColorBrush x:Key="ControlBorderBrush" Color="#FF5A5A5A"/>
     <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#FF3C3C3C"/>
@@ -15,5 +17,20 @@
     <SolidColorBrush x:Key="AlternatingRowBrush" Color="#FF2A2A2A"/>
     <SolidColorBrush x:Key="SelectionBrush" Color="#FF3399FF"/>
     <SolidColorBrush x:Key="ChartLineBrush" Color="#FF4FA8FF"/>
+
+    <!-- Overrides for native chrome that WPF's default templates source from
+         SystemColors directly (e.g. ComboBox popups, disabled text, default
+         highlight colors), so it follows the dark palette too. -->
+    <SolidColorBrush x:Key="{x:Static sys:SystemColors.WindowBrushKey}" Color="#FF2D2D30"/>
+    <SolidColorBrush x:Key="{x:Static sys:SystemColors.WindowTextBrushKey}" Color="#FFE0E0E0"/>
+    <SolidColorBrush x:Key="{x:Static sys:SystemColors.ControlBrushKey}" Color="#FF3C3C3C"/>
+    <SolidColorBrush x:Key="{x:Static sys:SystemColors.ControlTextBrushKey}" Color="#FFE0E0E0"/>
+    <SolidColorBrush x:Key="{x:Static sys:SystemColors.ControlLightBrushKey}" Color="#FF505050"/>
+    <SolidColorBrush x:Key="{x:Static sys:SystemColors.ControlDarkBrushKey}" Color="#FF1E1E1E"/>
+    <SolidColorBrush x:Key="{x:Static sys:SystemColors.GrayTextBrushKey}" Color="#FF9A9A9A"/>
+    <SolidColorBrush x:Key="{x:Static sys:SystemColors.HighlightBrushKey}" Color="#FF3399FF"/>
+    <SolidColorBrush x:Key="{x:Static sys:SystemColors.HighlightTextBrushKey}" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="{x:Static sys:SystemColors.MenuBrushKey}" Color="#FF2D2D30"/>
+    <SolidColorBrush x:Key="{x:Static sys:SystemColors.MenuTextBrushKey}" Color="#FFE0E0E0"/>
 
 </ResourceDictionary>

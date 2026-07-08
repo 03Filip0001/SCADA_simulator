@@ -26,6 +26,9 @@
             <Trigger Property="IsPressed" Value="True">
                 <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressedBrush}"/>
             </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.5"/>
+            </Trigger>
         </Style.Triggers>
     </Style>
 
@@ -34,12 +37,22 @@
         <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
         <Setter Property="CaretBrush" Value="{DynamicResource PrimaryForegroundBrush}"/>
+        <Style.Triggers>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.5"/>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style TargetType="ComboBox">
         <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+        <Style.Triggers>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.5"/>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style TargetType="ComboBoxItem">
@@ -80,6 +93,19 @@
 
     <Style TargetType="DataGridRowHeader">
         <Setter Property="Background" Value="{DynamicResource GridHeaderBackgroundBrush}"/>
+    </Style>
+
+    <Style TargetType="DataGridRow">
+        <Setter Property="Background" Value="Transparent"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource ButtonBackgroundHoverBrush}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SelectionBrush}"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style TargetType="DataGridCell">

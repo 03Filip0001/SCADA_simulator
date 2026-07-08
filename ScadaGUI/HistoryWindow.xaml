@@ -20,7 +20,7 @@
             <Grid>
                 <TextBlock x:Name="NoDataText" TextWrapping="Wrap"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                           FontStyle="Italic" Foreground="Gray" Visibility="Collapsed"/>
+                           FontStyle="Italic" Foreground="{DynamicResource SecondaryForegroundBrush}" Visibility="Collapsed"/>
                 <Canvas x:Name="ChartCanvas" ClipToBounds="True" SizeChanged="ChartCanvas_SizeChanged"/>
             </Grid>
         </Border>

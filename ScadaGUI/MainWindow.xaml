@@ -73,7 +73,7 @@
                     <TextBlock Text="{Binding SelectedTag.Address}" Margin="0,0,0,6"/>
                     <TextBlock Text="Type:" FontWeight="Bold"/>
                     <TextBlock Text="{Binding SelectedTag.Type}" Margin="0,0,0,6"/>
-                    <TextBlock Text="Selected tag details will appear here." FontStyle="Italic" Foreground="Gray"/>
+                    <TextBlock Text="Selected tag details will appear here." FontStyle="Italic" Foreground="{DynamicResource SecondaryForegroundBrush}"/>
                 </StackPanel>
             </GroupBox>
 
