@@ -150,20 +150,6 @@ namespace ScadaGUI
             {
                 return;
             }
-
-            TestanalogInput = builder.CreateAnalogInput("ADDR001");
-            TestanalogInput.Name = "Analog Tag 1";
-            TestanalogInput.Address = "ADDR001";
-            TestanalogInput.Type = Tag_Type.AI;
-
-            tag = builder.CreateDigitalInput("ADDR009");
-            tag.Name = "Digital Tag 1";
-            tag.Address = "ADDR009";
-            tag.Type = Tag_Type.DI;
-
-            IOElements.Add(TestanalogInput);
-            IOElements.Add(tag);
-            SaveAllTags();
         }
 
         private bool FilterTag(object obj)
