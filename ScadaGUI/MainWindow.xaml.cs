@@ -30,6 +30,8 @@ namespace ScadaGUI
         private DateTime lastRuntimePersist = DateTime.MinValue;
         private bool persistenceWarningShown;
 
+        private static readonly TimeSpan AcknowledgedAlarmRemovalDelay = TimeSpan.FromSeconds(5);
+
         public IAnalogInput TestanalogInput { get; set; }
         public ITag tag { get; set; }
         public ITagBuilder tagBuilder { get; set; }
@@ -595,7 +597,9 @@ namespace ScadaGUI
         {
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
-                RemoveActiveAlarmsForTag(tagName);
+                // The alarm is not removed here: it stays visible in the Active
+                // Alarms panel until acknowledged (and briefly after), which
+                // SyncActiveAlarmsFromTags is responsible for.
                 var sourceTag = IOElements.OfType<AnalogInput>().FirstOrDefault(tag => tag.Name == tagName);
                 if (sourceTag != null)
                 {
@@ -608,54 +612,90 @@ namespace ScadaGUI
 
         private void SyncActiveAlarmsFromTags()
         {
-            var activeInputs = IOElements
+            // Active Alarms lifecycle: an alarm entry is created the moment a tag's
+            // alarm first goes active, and it stays visible even after the value
+            // returns to normal. It is only ever removed by acknowledging it (with a
+            // short grace period afterwards) -- never merely because the condition
+            // that triggered it has cleared.
+            var alarmEnabledInputs = IOElements
                 .OfType<AnalogInput>()
-                .Where(tag => tag.AlarmEnabled && tag.AlarmActive)
+                .Where(tag => tag.AlarmEnabled)
                 .ToList();
 
-            var activeNames = new HashSet<string>(activeInputs.Select(tag => tag.Name));
-            foreach (var staleAlarm in ActiveAlarms.Where(alarm => !activeNames.Contains(alarm.TagName)).ToList())
+            foreach (var input in alarmEnabledInputs)
             {
-                ActiveAlarms.Remove(staleAlarm);
+                var alarmInfo = ActiveAlarms.FirstOrDefault(alarm => alarm.TagName == input.Name);
+
+                if (input.AlarmActive)
+                {
+                    if (alarmInfo == null)
+                    {
+                        ActiveAlarms.Add(new AlarmInfo
+                        {
+                            TagName = input.Name,
+                            Address = input.Address,
+                            TriggeredValue = input.CurrentValue,
+                            LowLimit = input.LowLimit,
+                            HighLimit = input.HighLimit,
+                            IsAcknowledged = input.AlarmAcknowledged,
+                            AlarmName = input.AlarmName,
+                            AlarmType = input.AlarmType,
+                            Priority = input.AlarmPriority,
+                            Message = input.AlarmMessage,
+                            Timestamp = DateTime.UtcNow
+                        });
+                    }
+                    else
+                    {
+                        alarmInfo.Address = input.Address;
+                        alarmInfo.TriggeredValue = input.CurrentValue;
+                        alarmInfo.LowLimit = input.LowLimit;
+                        alarmInfo.HighLimit = input.HighLimit;
+                        alarmInfo.IsAcknowledged = input.AlarmAcknowledged;
+                        alarmInfo.AlarmName = input.AlarmName;
+                        alarmInfo.AlarmType = input.AlarmType;
+                        alarmInfo.Priority = input.AlarmPriority;
+                        alarmInfo.Message = input.AlarmMessage;
+                        alarmInfo.PendingRemovalAt = null;
+                    }
+                }
+                else if (alarmInfo != null)
+                {
+                    // Condition has cleared. Still shown until acknowledged; once
+                    // acknowledged, start (or keep) the removal countdown.
+                    alarmInfo.IsAcknowledged = input.AlarmAcknowledged;
+
+                    if (input.AlarmAcknowledged)
+                    {
+                        if (!alarmInfo.PendingRemovalAt.HasValue)
+                        {
+                            alarmInfo.PendingRemovalAt = DateTime.UtcNow.Add(AcknowledgedAlarmRemovalDelay);
+                        }
+                    }
+                    else
+                    {
+                        alarmInfo.PendingRemovalAt = null;
+                    }
+                }
             }
 
-            foreach (var activeInput in activeInputs)
+            var enabledNames = new HashSet<string>(alarmEnabledInputs.Select(input => input.Name));
+            var now = DateTime.UtcNow;
+            foreach (var alarm in ActiveAlarms
+                .Where(alarm => !enabledNames.Contains(alarm.TagName)
+                    || (alarm.PendingRemovalAt.HasValue && alarm.PendingRemovalAt.Value <= now))
+                .ToList())
             {
-                var alarmInfo = ActiveAlarms.FirstOrDefault(alarm => alarm.TagName == activeInput.Name);
-                if (alarmInfo == null)
+                ActiveAlarms.Remove(alarm);
+                if (SelectedAlarm == alarm)
                 {
-                    ActiveAlarms.Add(new AlarmInfo
-                    {
-                        TagName = activeInput.Name,
-                        Address = activeInput.Address,
-                        TriggeredValue = activeInput.CurrentValue,
-                        LowLimit = activeInput.LowLimit,
-                        HighLimit = activeInput.HighLimit,
-                        IsAcknowledged = activeInput.AlarmAcknowledged,
-                        AlarmName = activeInput.AlarmName,
-                        AlarmType = activeInput.AlarmType,
-                        Priority = activeInput.AlarmPriority,
-                        Message = activeInput.AlarmMessage,
-                        Timestamp = DateTime.UtcNow
-                    });
-                }
-                else
-                {
-                    alarmInfo.Address = activeInput.Address;
-                    alarmInfo.TriggeredValue = activeInput.CurrentValue;
-                    alarmInfo.LowLimit = activeInput.LowLimit;
-                    alarmInfo.HighLimit = activeInput.HighLimit;
-                    alarmInfo.IsAcknowledged = activeInput.AlarmAcknowledged;
-                    alarmInfo.AlarmName = activeInput.AlarmName;
-                    alarmInfo.AlarmType = activeInput.AlarmType;
-                    alarmInfo.Priority = activeInput.AlarmPriority;
-                    alarmInfo.Message = activeInput.AlarmMessage;
+                    SelectedAlarm = null;
                 }
             }
 
             CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
             UpdateAcknowledgeButtonState();
-            AlarmSoundService.UpdateState(activeInputs.Any(tag => !tag.AlarmAcknowledged));
+            AlarmSoundService.UpdateState(alarmEnabledInputs.Any(tag => tag.AlarmActive && !tag.AlarmAcknowledged));
             SaveRuntimeStateIfDue();
         }
 

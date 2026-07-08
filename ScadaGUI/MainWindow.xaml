@@ -1,16 +1,22 @@
-﻿<Window x:Class="ScadaGUI.MainWindow"
+<Window x:Class="ScadaGUI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ScadaGUI"
         mc:Ignorable="d"
-        Title="SCADA Application" Height="620" Width="1100" MinHeight="560" MinWidth="980"
+        Title="SCADA Application" Height="620" Width="1200" MinHeight="560" MinWidth="980"
         Closing="Window_Closing">
-    <Grid Margin="10">
+    <Window.Resources>
+        <DataTemplate x:Key="SectionHeaderTemplate">
+            <TextBlock Text="{Binding}" FontWeight="SemiBold" FontSize="14"
+                       Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"/>
+        </DataTemplate>
+    </Window.Resources>
+    <Grid Margin="16">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="2*"/>
-            <ColumnDefinition Width="1.2*"/>
+            <ColumnDefinition Width="1.8*"/>
+            <ColumnDefinition Width="1.4*"/>
         </Grid.ColumnDefinitions>
 
         <Grid Grid.Column="0">
@@ -20,14 +26,17 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <TextBox Width="180" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
-                <ComboBox Width="140" Margin="10,0,0,0"
-                          ItemsSource="{Binding TagFilterOptions}"
-                          SelectedItem="{Binding SelectedTagTypeFilter, UpdateSourceTrigger=PropertyChanged}"/>
-                <Button Content="Open History" Width="120" Margin="10,0,0,0" Click="Button_ShowHistory"/>
-                <Button x:Name="ThemeToggleButton" Content="Switch to Dark" Width="120" Margin="10,0,0,0" Click="Button_ToggleTheme"/>
+            <StackPanel Margin="0,0,0,16">
+                <WrapPanel>
+                    <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBox Width="180" VerticalAlignment="Center" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                    <ComboBox Width="140" Margin="12,0,0,0" VerticalAlignment="Center"
+                              ItemsSource="{Binding TagFilterOptions}"
+                              SelectedItem="{Binding SelectedTagTypeFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                    <Button Content="Open History" Height="30" MinWidth="120" Margin="12,0,0,0" Click="Button_ShowHistory"/>
+                </WrapPanel>
+                <Button x:Name="ThemeToggleButton" Content="Switch to Dark" Height="30" MinWidth="120"
+                        HorizontalAlignment="Left" Margin="0,10,0,0" Click="Button_ToggleTheme"/>
             </StackPanel>
 
             <DataGrid Grid.Row="1"
@@ -35,7 +44,7 @@
                       AutoGenerateColumns="False"
                       SelectedItem="{Binding SelectedTag, Mode=TwoWay}"
                       IsReadOnly="True"
-                      Margin="0,0,0,10">
+                      Margin="0,0,0,16">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="120"/>
                     <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="100"/>
@@ -45,52 +54,53 @@
                 </DataGrid.Columns>
             </DataGrid>
 
-            <WrapPanel Grid.Row="2" Margin="0,4,0,0">
-                <Button Content="Add tag" Height="30" Width="95" Margin="0,0,8,0"
+            <WrapPanel Grid.Row="2" Margin="0,10,0,0">
+                <Button Content="Add tag" Height="30" MinWidth="95" Margin="0,0,10,0"
                         Click="Button_AddTag"/>
-                <Button Content="View tag" Height="30" Width="95" Margin="0,0,8,0"
+                <Button Content="View tag" Height="30" MinWidth="95" Margin="0,0,10,0"
                         Click="Button_ViewTag"/>
-                <Button Content="Update tag" Height="30" Width="95" Margin="0,0,8,0"
+                <Button Content="Update tag" Height="30" MinWidth="95" Margin="0,0,10,0"
                         Click="Button_UpdateTag"/>
-                <Button Content="Delete tag" Height="30" Width="95" Margin="0,0,8,0"
+                <Button Content="Delete tag" Height="30" MinWidth="95" Margin="0,0,10,0"
                         Click="Button_DeleteTag"/>
-                <Button Content="Delete alarm" Height="30" Width="95"
+                <Button Content="Delete alarm" Height="30" MinWidth="95"
                         Click="Button_DeleteAlarm"/>
             </WrapPanel>
         </Grid>
 
-        <Grid Grid.Column="1" Margin="10,0,0,0">
+        <Grid Grid.Column="1" Margin="16,0,0,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <GroupBox Grid.Row="0" Header="Selected Tag" Padding="8" Margin="0,0,0,8">
+            <GroupBox Grid.Row="0" Header="Selected Tag" HeaderTemplate="{StaticResource SectionHeaderTemplate}" Padding="12" Margin="0,0,0,16">
                 <StackPanel>
                     <TextBlock Text="Name:" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding SelectedTag.Name}" Margin="0,0,0,6"/>
+                    <TextBlock Text="{Binding SelectedTag.Name}" Margin="0,0,0,8"/>
                     <TextBlock Text="Address:" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding SelectedTag.Address}" Margin="0,0,0,6"/>
+                    <TextBlock Text="{Binding SelectedTag.Address}" Margin="0,0,0,8"/>
                     <TextBlock Text="Type:" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding SelectedTag.Type}" Margin="0,0,0,6"/>
+                    <TextBlock Text="{Binding SelectedTag.Type}" Margin="0,0,0,8"/>
                     <TextBlock Text="Selected tag details will appear here." FontStyle="Italic" Foreground="{DynamicResource SecondaryForegroundBrush}"/>
                 </StackPanel>
             </GroupBox>
 
-            <GroupBox Grid.Row="1" Header="Active Alarms" Padding="8">
+            <GroupBox Grid.Row="1" Header="Active Alarms" HeaderTemplate="{StaticResource SectionHeaderTemplate}" Padding="12">
                 <DockPanel>
                     <Button x:Name="AcknowledgeAlarmButton"
                             DockPanel.Dock="Bottom"
                             Content="Acknowledge Alarm"
-                            Width="220"
+                            MinWidth="220"
                             Height="30"
-                            Margin="0,8,0,0"
+                            Margin="0,12,0,0"
                             HorizontalAlignment="Left"
                             IsEnabled="False"
                             Click="Button_AcknowledgeAlarm"/>
                     <DataGrid x:Name="ActiveAlarmsGrid"
                               ItemsSource="{Binding ActiveAlarms}"
                               AutoGenerateColumns="False"
+                              IsReadOnly="True"
                               HeadersVisibility="Column"
                               SelectedItem="{Binding SelectedAlarm, Mode=TwoWay}"
                               SelectionMode="Extended"
@@ -98,14 +108,24 @@
                               SelectionChanged="ActiveAlarmsGrid_SelectionChanged"
                               MinHeight="120"
                               CanUserAddRows="False">
+                        <DataGrid.Resources>
+                            <!-- Every column sizes to its own content (Width="Auto"),
+                                 not to fill leftover space. Tag/Alarm can hold free-text
+                                 that's occasionally long, so they cap out at MaxWidth
+                                 (~20 characters) and ellipsis-trim anything longer,
+                                 instead of stretching the table to fit. -->
+                            <Style x:Key="AlarmCellTextStyle" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                <Setter Property="Margin" Value="6,4,6,4"/>
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                            </Style>
+                        </DataGrid.Resources>
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Tag" Binding="{Binding TagName}" Width="*"/>
-                            <DataGridTextColumn Header="Alarm" Binding="{Binding AlarmName}" Width="*"/>
-                            <DataGridTextColumn Header="Type" Binding="{Binding AlarmType}" Width="*"/>
-                            <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="Auto"/>
-                            <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*"/>
-                            <DataGridTextColumn Header="Time" Binding="{Binding Timestamp}" Width="*"/>
-                            <DataGridTextColumn Header="Ack" Binding="{Binding IsAcknowledged}" Width="Auto"/>
+                            <DataGridTextColumn Header="Tag" Binding="{Binding TagName}" Width="Auto" MinWidth="70" MaxWidth="150" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
+                            <DataGridTextColumn Header="Alarm" Binding="{Binding AlarmName}" Width="Auto" MinWidth="60" MaxWidth="150" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
+                            <DataGridTextColumn Header="Pri." Binding="{Binding Priority}" Width="Auto" MinWidth="40" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
+                            <DataGridTextColumn Header="Time" Binding="{Binding Timestamp, StringFormat='HH:mm:ss'}" Width="Auto" MinWidth="65" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
+                            <DataGridCheckBoxColumn Header="Ack" Binding="{Binding IsAcknowledged}" Width="Auto" MinWidth="45"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>

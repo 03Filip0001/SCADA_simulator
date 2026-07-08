@@ -97,10 +97,10 @@
             </ScrollViewer>
         </Grid>
 
-        <Button Grid.Row="1" x:Name="CreateButton" Content="Create" Width="135" Height="35"  Margin="15,0,0,0" HorizontalAlignment="Left"
+        <Button Grid.Row="1" x:Name="CreateButton" Content="Create" MinWidth="135" Height="35"  Margin="15,0,0,0" HorizontalAlignment="Left"
                 Click="Button_Create"/>
 
-        <Button Grid.Row="1" Content="Cancel" Width="135" Height="35" Margin="0,0, 15,0" HorizontalAlignment="Right"
+        <Button Grid.Row="1" Content="Cancel" MinWidth="135" Height="35" Margin="0,0, 15,0" HorizontalAlignment="Right"
                 Click="Button_Cancel"/>
 
     </Grid>

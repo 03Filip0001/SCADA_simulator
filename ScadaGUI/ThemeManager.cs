@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Windows;
 using DataConcentrator.Persistence;
+using MaterialDesignColors;
+using MaterialDesignThemes.Wpf;
 
 namespace ScadaGUI
 {
@@ -16,8 +18,10 @@ namespace ScadaGUI
         private const string LightThemeUri = "pack://application:,,,/ScadaGUI;component/Themes/LightTheme.xaml";
         private const string DarkThemeUri = "pack://application:,,,/ScadaGUI;component/Themes/DarkTheme.xaml";
         private const string ControlStylesUri = "pack://application:,,,/ScadaGUI;component/Themes/ControlStyles.xaml";
+        private const string MaterialDesignDefaultsUri = "pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign2.Defaults.xaml";
 
         private static bool controlStylesLoaded;
+        private static BundledTheme materialBundledTheme;
 
         public static AppTheme CurrentTheme { get; private set; } = AppTheme.Light;
 
@@ -58,6 +62,7 @@ namespace ScadaGUI
             }
 
             appResources.MergedDictionaries.Add(themeDictionary);
+            materialBundledTheme.BaseTheme = theme == AppTheme.Dark ? MaterialDesignThemes.Wpf.BaseTheme.Dark : MaterialDesignThemes.Wpf.BaseTheme.Light;
             CurrentTheme = theme;
 
             if (persist)
@@ -74,16 +79,24 @@ namespace ScadaGUI
             }
 
             var appResources = Application.Current.Resources;
-            bool alreadyPresent = appResources.MergedDictionaries.Any(dictionary =>
-                dictionary.Source != null && dictionary.Source.OriginalString == ControlStylesUri);
 
-            if (!alreadyPresent)
+            materialBundledTheme = new BundledTheme
             {
-                appResources.MergedDictionaries.Add(new ResourceDictionary
-                {
-                    Source = new Uri(ControlStylesUri, UriKind.Absolute)
-                });
-            }
+                BaseTheme = MaterialDesignThemes.Wpf.BaseTheme.Light,
+                PrimaryColor = PrimaryColor.Blue,
+                SecondaryColor = SecondaryColor.Amber
+            };
+            appResources.MergedDictionaries.Add(materialBundledTheme);
+
+            appResources.MergedDictionaries.Add(new ResourceDictionary
+            {
+                Source = new Uri(MaterialDesignDefaultsUri, UriKind.Absolute)
+            });
+
+            appResources.MergedDictionaries.Add(new ResourceDictionary
+            {
+                Source = new Uri(ControlStylesUri, UriKind.Absolute)
+            });
 
             controlStylesLoaded = true;
         }

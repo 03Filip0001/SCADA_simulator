@@ -118,10 +118,7 @@ namespace DataConcentrator.Model
 
         public void AcknowledgeAlarm()
         {
-            if (AlarmActive)
-            {
-                AlarmAcknowledged = true;
-            }
+            AlarmAcknowledged = true;
         }
 
         public void RestoreCurrentValue(double value)
@@ -272,8 +269,12 @@ namespace DataConcentrator.Model
 
             if (AlarmActive && IsInsideClearRange(value))
             {
+                // AlarmAcknowledged deliberately survives this transition: the Active
+                // Alarms panel keeps a cleared alarm visible until it has been
+                // acknowledged, so acknowledging it must not be undone by the value
+                // returning to normal. It resets to false above when the alarm next
+                // transitions from inactive to active (a new occurrence).
                 AlarmActive = false;
-                AlarmAcknowledged = false;
                 AlarmMessage = string.Empty;
                 AlarmCleared?.Invoke(this);
             }
@@ -316,5 +317,9 @@ namespace DataConcentrator.Model
         public int Priority { get; set; }
         public string Message { get; set; }
         public DateTime Timestamp { get; set; }
+
+        // Set once an acknowledged alarm's condition has cleared; the alarm is
+        // removed from the Active Alarms panel once this time is reached.
+        public DateTime? PendingRemovalAt { get; set; }
     }
 }
