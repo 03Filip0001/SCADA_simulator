@@ -320,6 +320,7 @@ namespace ScadaGUI
 
             if (!Enum.TryParse(type, out Tag_Type tagType))
             {
+                SystemLogger.LogError($"Failed to create tag: invalid tag type '{type}'.");
                 MessageBox.Show("Select a valid tag type.", "Create Tag", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -360,6 +361,7 @@ namespace ScadaGUI
                     addwindow.DialogResultAlarmName,
                     addwindow.DialogResultAlarmType,
                     addwindow.DialogResultAlarmPriority);
+                SystemLogger.Log($"Alarm updated for tag: {alarmTarget.Name}");
             }
 
             if (isInput)
@@ -592,6 +594,8 @@ namespace ScadaGUI
                     SaveAlarmConfiguration(sourceTag);
                 }
 
+                SystemLogger.Log($"Alarm returned to normal: {tagName}");
+
                 SyncActiveAlarmsFromTags();
             }));
         }
@@ -749,7 +753,7 @@ namespace ScadaGUI
                 "Database",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
-            SystemLogger.Log($"Persistence warning: {errorMessage}");
+            SystemLogger.LogWarning($"Persistence warning: {errorMessage}");
         }
 
         private void OnPropertyChanged(string propertyName)

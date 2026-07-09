@@ -1,4 +1,5 @@
 ﻿using Contracts;
+using DataConcentrator;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -148,6 +149,11 @@ namespace ScadaGUI
             }
         }
 
+        private void LogValidationFailure(string reason)
+        {
+            SystemLogger.LogError($"Failed to {(tagToEdit != null ? "update" : "create")} tag: {reason}");
+        }
+
         public void Button_Create(object sender, RoutedEventArgs e)
         {
             this.DialogResultType = Dropdown?.SelectedItem?.ToString() ?? "AI";
@@ -183,6 +189,7 @@ namespace ScadaGUI
 
             if (this.DialogResultHasAlarmSettings && this.DialogResultAlarmTarget == null)
             {
+                LogValidationFailure("no analog input tag selected for the alarm");
                 MessageBox.Show("Select an existing analog input tag for the alarm.", "Add Alarm", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -191,18 +198,21 @@ namespace ScadaGUI
             {
                 if (string.IsNullOrWhiteSpace(this.DialogResultName))
                 {
+                    LogValidationFailure("tag name is required");
                     MessageBox.Show("Tag name is required.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(this.DialogResultAddress))
                 {
+                    LogValidationFailure("tag address is required");
                     MessageBox.Show("Tag address is required.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
                 if (!ValidPlcAddresses.Contains(this.DialogResultAddress))
                 {
+                    LogValidationFailure($"'{this.DialogResultAddress}' is not a valid PLC Simulator address");
                     MessageBox.Show($"'{this.DialogResultAddress}' is not a valid PLC Simulator address.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -213,6 +223,7 @@ namespace ScadaGUI
 
                 if (duplicateName)
                 {
+                    LogValidationFailure($"duplicate tag name '{this.DialogResultName}'");
                     MessageBox.Show("A tag with this name already exists.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -220,42 +231,49 @@ namespace ScadaGUI
 
             if (this.DialogResultHasAlarmSettings && string.IsNullOrWhiteSpace(this.DialogResultAlarmName))
             {
+                LogValidationFailure("alarm name is required");
                 MessageBox.Show("Alarm name is required.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (this.DialogResultHasAlarmSettings && string.IsNullOrWhiteSpace(this.DialogResultAlarmType))
             {
+                LogValidationFailure("alarm type is required");
                 MessageBox.Show("Alarm type is required.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (this.DialogResultHasAlarmSettings && !int.TryParse(textboxAlarmPriority?.Text, out alarmPriority))
             {
+                LogValidationFailure("alarm priority must be a valid whole number");
                 MessageBox.Show("Alarm priority must be a valid whole number.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (this.DialogResultHasAlarmSettings && alarmPriority < 0)
             {
+                LogValidationFailure("alarm priority cannot be negative");
                 MessageBox.Show("Alarm priority cannot be negative.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (this.DialogResultHasAlarmSettings && !double.TryParse(textboxLowLimit?.Text, out lowLimit))
             {
+                LogValidationFailure("alarm low limit must be a valid number");
                 MessageBox.Show("Alarm low limit must be a valid number.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (this.DialogResultHasAlarmSettings && !double.TryParse(textboxHighLimit?.Text, out highLimit))
             {
+                LogValidationFailure("alarm high limit must be a valid number");
                 MessageBox.Show("Alarm high limit must be a valid number.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (this.DialogResultHasAlarmSettings && highLimit <= lowLimit)
             {
+                LogValidationFailure("alarm high limit must be greater than the low limit");
                 MessageBox.Show("Alarm high limit must be greater than the low limit.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }

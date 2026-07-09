@@ -194,9 +194,10 @@ namespace DataConcentrator
                 {
                     analogValue = _plc.GetAnalogValue(address);
                 }
-                catch
+                catch (Exception ex)
                 {
                     // failure reading value should not crash the scanner thread
+                    SystemLogger.LogError($"PLC communication failed for address '{address}'.", ex);
                 }
 
                 foreach (var tag in tags)
