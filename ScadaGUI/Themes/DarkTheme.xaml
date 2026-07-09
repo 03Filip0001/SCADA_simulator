@@ -9,6 +9,16 @@
     <SolidColorBrush x:Key="GridLineBrush" Color="#FF4A4A4A"/>
     <SolidColorBrush x:Key="ChartLineBrush" Color="#FF4FA8FF"/>
 
+    <!-- Alarms grid row states: a deeper/muted red, amber and green than the light
+         theme so the rows don't glare against the dark surface, while staying
+         clearly distinguishable from each other. -->
+    <SolidColorBrush x:Key="AlarmActiveBrush" Color="#FFB71C1C"/>
+    <SolidColorBrush x:Key="AlarmActiveForegroundBrush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="AlarmAcknowledgedBrush" Color="#FFC9A227"/>
+    <SolidColorBrush x:Key="AlarmAcknowledgedForegroundBrush" Color="#FF1A1A1A"/>
+    <SolidColorBrush x:Key="AlarmInactiveBrush" Color="#FF2E7D32"/>
+    <SolidColorBrush x:Key="AlarmInactiveForegroundBrush" Color="#FFE0E0E0"/>
+
     <!-- Safety net for any native chrome that isn't covered by a Material Design
          control template (e.g. an OS-drawn fallback) and would otherwise still
          source its look from SystemColors, leaking the light OS theme through. -->

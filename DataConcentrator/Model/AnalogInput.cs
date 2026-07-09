@@ -13,6 +13,7 @@ namespace DataConcentrator.Model
         private double currentValue;
         private bool alarmActive;
         private bool alarmAcknowledged;
+        private bool alarmHasOccurred;
         private bool alarmEvaluationPending;
         private string alarmMessage;
         private readonly List<AnalogInputHistoryRecord> history = new List<AnalogInputHistoryRecord>();
@@ -54,6 +55,23 @@ namespace DataConcentrator.Model
                 {
                     alarmAcknowledged = value;
                     OnPropertyChanged(nameof(AlarmAcknowledged));
+                }
+            }
+        }
+
+        // True once this alarm has fired at least once since it was configured.
+        // Distinguishes a fresh, never-triggered alarm (shown as Inactive/green)
+        // from one that fired and returned to normal but is still unacknowledged
+        // (shown as still red until acknowledged).
+        public bool AlarmHasOccurred
+        {
+            get => alarmHasOccurred;
+            private set
+            {
+                if (alarmHasOccurred != value)
+                {
+                    alarmHasOccurred = value;
+                    OnPropertyChanged(nameof(AlarmHasOccurred));
                 }
             }
         }
@@ -129,7 +147,8 @@ namespace DataConcentrator.Model
         public void RestoreAlarmState(bool isActive, bool isAcknowledged)
         {
             AlarmActive = isActive;
-            AlarmAcknowledged = isActive && isAcknowledged;
+            AlarmAcknowledged = isAcknowledged;
+            AlarmHasOccurred = isActive || isAcknowledged;
             alarmEvaluationPending = true;
         }
 
@@ -161,6 +180,7 @@ namespace DataConcentrator.Model
             AlarmEnabled = false;
             AlarmActive = false;
             AlarmAcknowledged = false;
+            AlarmHasOccurred = false;
             AlarmName = string.Empty;
             AlarmType = string.Empty;
             AlarmPriority = 0;
@@ -234,6 +254,7 @@ namespace DataConcentrator.Model
                 if (!wasActive)
                 {
                     AlarmAcknowledged = false;
+                    AlarmHasOccurred = true;
                 }
 
                 AlarmMessage = string.IsNullOrWhiteSpace(configuredMessage)
@@ -250,6 +271,8 @@ namespace DataConcentrator.Model
                     LowLimit = LowLimit,
                     HighLimit = HighLimit,
                     IsAcknowledged = AlarmAcknowledged,
+                    IsActive = true,
+                    HasOccurred = AlarmHasOccurred,
                     AlarmDefinitionId = AlarmDefinitionId,
                     AlarmName = AlarmName,
                     AlarmType = AlarmType,
@@ -269,10 +292,10 @@ namespace DataConcentrator.Model
 
             if (AlarmActive && IsInsideClearRange(value))
             {
-                // AlarmAcknowledged deliberately survives this transition: the Active
-                // Alarms panel keeps a cleared alarm visible until it has been
-                // acknowledged, so acknowledging it must not be undone by the value
-                // returning to normal. It resets to false above when the alarm next
+                // AlarmAcknowledged deliberately survives this transition: an
+                // alarm that returns to normal without having been acknowledged
+                // must stay red (not jump to green) until the user acknowledges
+                // it. It only resets to false above when the alarm next
                 // transitions from inactive to active (a new occurrence).
                 AlarmActive = false;
                 AlarmMessage = string.Empty;
@@ -311,15 +334,21 @@ namespace DataConcentrator.Model
         public double LowLimit { get; set; }
         public double HighLimit { get; set; }
         public bool IsAcknowledged { get; set; }
+
+        // Mirrors the source tag's AlarmActive at the time of the last sync, so
+        // the UI can distinguish Active / Acknowledged / Inactive at a glance.
+        public bool IsActive { get; set; }
+
+        // Mirrors the source tag's AlarmHasOccurred: true once this alarm has
+        // fired at least once, so a returned-to-normal alarm can still be shown
+        // as needing acknowledgment instead of looking like it never happened.
+        public bool HasOccurred { get; set; }
+
         public int AlarmDefinitionId { get; set; }
         public string AlarmName { get; set; }
         public string AlarmType { get; set; }
         public int Priority { get; set; }
         public string Message { get; set; }
         public DateTime Timestamp { get; set; }
-
-        // Set once an acknowledged alarm's condition has cleared; the alarm is
-        // removed from the Active Alarms panel once this time is reached.
-        public DateTime? PendingRemovalAt { get; set; }
     }
 }

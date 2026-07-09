@@ -8,4 +8,13 @@
     <SolidColorBrush x:Key="GridLineBrush" Color="#FFD0D0D0"/>
     <SolidColorBrush x:Key="ChartLineBrush" Color="#FF1F6FC5"/>
 
+    <!-- Alarms grid row states: Red = active & unacknowledged, Yellow = acknowledged,
+         Green = inactive (back within the normal range, unacknowledged). -->
+    <SolidColorBrush x:Key="AlarmActiveBrush" Color="#FFD32F2F"/>
+    <SolidColorBrush x:Key="AlarmActiveForegroundBrush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="AlarmAcknowledgedBrush" Color="#FFFFD54F"/>
+    <SolidColorBrush x:Key="AlarmAcknowledgedForegroundBrush" Color="#FF1A1A1A"/>
+    <SolidColorBrush x:Key="AlarmInactiveBrush" Color="#FF66BB6A"/>
+    <SolidColorBrush x:Key="AlarmInactiveForegroundBrush" Color="#FF1A1A1A"/>
+
 </ResourceDictionary>

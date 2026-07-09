@@ -6,6 +6,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Contracts;
 using DataConcentrator;
@@ -29,8 +31,6 @@ namespace ScadaGUI
         private readonly DispatcherTimer alarmRefreshTimer;
         private DateTime lastRuntimePersist = DateTime.MinValue;
         private bool persistenceWarningShown;
-
-        private static readonly TimeSpan AcknowledgedAlarmRemovalDelay = TimeSpan.FromSeconds(5);
 
         public IAnalogInput TestanalogInput { get; set; }
         public ITag tag { get; set; }
@@ -124,6 +124,7 @@ namespace ScadaGUI
             };
             alarmRefreshTimer.Tick += (sender, args) => SyncActiveAlarmsFromTags();
             alarmRefreshTimer.Start();
+            SyncActiveAlarmsFromTags();
 
             DataContext = this;
         }
@@ -529,6 +530,43 @@ namespace ScadaGUI
             }
         }
 
+        private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (ActiveAlarmsGrid == null || ActiveAlarmsGrid.SelectedItems.Count == 0)
+            {
+                return;
+            }
+
+            var clickedElement = e.OriginalSource as DependencyObject;
+
+            // Clicking inside the grid itself (to change/extend the selection) or on
+            // the Acknowledge button (to act on the current selection) must not clear
+            // it; clicking anywhere else in the window should.
+            if (IsDescendantOf(clickedElement, ActiveAlarmsGrid) || IsDescendantOf(clickedElement, AcknowledgeAlarmButton))
+            {
+                return;
+            }
+
+            ActiveAlarmsGrid.UnselectAll();
+        }
+
+        private static bool IsDescendantOf(DependencyObject element, DependencyObject ancestor)
+        {
+            while (element != null)
+            {
+                if (element == ancestor)
+                {
+                    return true;
+                }
+
+                element = (element is Visual || element is System.Windows.Media.Media3D.Visual3D)
+                    ? VisualTreeHelper.GetParent(element)
+                    : LogicalTreeHelper.GetParent(element);
+            }
+
+            return false;
+        }
+
         private void OnAlarmRaised(AlarmInfo alarmInfo)
         {
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
@@ -547,6 +585,11 @@ namespace ScadaGUI
                     ShowPersistenceWarning(readError);
                 }
 
+                // A raised alarm is always active by definition, and by definition
+                // has now occurred at least once.
+                displayAlarm.IsActive = true;
+                displayAlarm.HasOccurred = true;
+
                 var existingAlarm = ActiveAlarms.FirstOrDefault(alarm => alarm.TagName == displayAlarm.TagName);
                 if (existingAlarm == null)
                 {
@@ -561,6 +604,8 @@ namespace ScadaGUI
                     existingAlarm.LowLimit = displayAlarm.LowLimit;
                     existingAlarm.HighLimit = displayAlarm.HighLimit;
                     existingAlarm.IsAcknowledged = displayAlarm.IsAcknowledged;
+                    existingAlarm.IsActive = true;
+                    existingAlarm.HasOccurred = true;
                     existingAlarm.AlarmName = displayAlarm.AlarmName;
                     existingAlarm.AlarmType = displayAlarm.AlarmType;
                     existingAlarm.Priority = displayAlarm.Priority;
@@ -585,9 +630,9 @@ namespace ScadaGUI
         {
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
-                // The alarm is not removed here: it stays visible in the Active
-                // Alarms panel until acknowledged (and briefly after), which
-                // SyncActiveAlarmsFromTags is responsible for.
+                // The row for this tag stays in the Alarms panel; its color and
+                // Ack checkbox just update to reflect the now-inactive state,
+                // which SyncActiveAlarmsFromTags is responsible for.
                 var sourceTag = IOElements.OfType<AnalogInput>().FirstOrDefault(tag => tag.Name == tagName);
                 if (sourceTag != null)
                 {
@@ -602,11 +647,11 @@ namespace ScadaGUI
 
         private void SyncActiveAlarmsFromTags()
         {
-            // Active Alarms lifecycle: an alarm entry is created the moment a tag's
-            // alarm first goes active, and it stays visible even after the value
-            // returns to normal. It is only ever removed by acknowledging it (with a
-            // short grace period afterwards) -- never merely because the condition
-            // that triggered it has cleared.
+            // The Alarms panel shows one permanent row per currently configured
+            // alarm -- it is an overview of every alarm in the system, not just
+            // ones that have fired. Rows are added/removed only as alarms are
+            // configured/deleted; the alarm's Active/Acknowledged/Inactive state
+            // is instead reflected purely through row coloring (see MainWindow.xaml).
             var alarmEnabledInputs = IOElements
                 .OfType<AnalogInput>()
                 .Where(tag => tag.AlarmEnabled)
@@ -616,65 +661,51 @@ namespace ScadaGUI
             {
                 var alarmInfo = ActiveAlarms.FirstOrDefault(alarm => alarm.TagName == input.Name);
 
-                if (input.AlarmActive)
+                if (alarmInfo == null)
                 {
-                    if (alarmInfo == null)
+                    ActiveAlarms.Add(new AlarmInfo
                     {
-                        ActiveAlarms.Add(new AlarmInfo
-                        {
-                            TagName = input.Name,
-                            Address = input.Address,
-                            TriggeredValue = input.CurrentValue,
-                            LowLimit = input.LowLimit,
-                            HighLimit = input.HighLimit,
-                            IsAcknowledged = input.AlarmAcknowledged,
-                            AlarmName = input.AlarmName,
-                            AlarmType = input.AlarmType,
-                            Priority = input.AlarmPriority,
-                            Message = input.AlarmMessage,
-                            Timestamp = DateTime.UtcNow
-                        });
-                    }
-                    else
-                    {
-                        alarmInfo.Address = input.Address;
-                        alarmInfo.TriggeredValue = input.CurrentValue;
-                        alarmInfo.LowLimit = input.LowLimit;
-                        alarmInfo.HighLimit = input.HighLimit;
-                        alarmInfo.IsAcknowledged = input.AlarmAcknowledged;
-                        alarmInfo.AlarmName = input.AlarmName;
-                        alarmInfo.AlarmType = input.AlarmType;
-                        alarmInfo.Priority = input.AlarmPriority;
-                        alarmInfo.Message = input.AlarmMessage;
-                        alarmInfo.PendingRemovalAt = null;
-                    }
+                        TagName = input.Name,
+                        Address = input.Address,
+                        TriggeredValue = input.CurrentValue,
+                        LowLimit = input.LowLimit,
+                        HighLimit = input.HighLimit,
+                        IsAcknowledged = input.AlarmAcknowledged,
+                        IsActive = input.AlarmActive,
+                        HasOccurred = input.AlarmHasOccurred,
+                        AlarmName = input.AlarmName,
+                        AlarmType = input.AlarmType,
+                        Priority = input.AlarmPriority,
+                        Message = input.AlarmMessage,
+                        Timestamp = DateTime.UtcNow
+                    });
                 }
-                else if (alarmInfo != null)
+                else
                 {
-                    // Condition has cleared. Still shown until acknowledged; once
-                    // acknowledged, start (or keep) the removal countdown.
-                    alarmInfo.IsAcknowledged = input.AlarmAcknowledged;
+                    bool wasActive = alarmInfo.IsActive;
 
-                    if (input.AlarmAcknowledged)
+                    alarmInfo.Address = input.Address;
+                    alarmInfo.TriggeredValue = input.CurrentValue;
+                    alarmInfo.LowLimit = input.LowLimit;
+                    alarmInfo.HighLimit = input.HighLimit;
+                    alarmInfo.IsAcknowledged = input.AlarmAcknowledged;
+                    alarmInfo.IsActive = input.AlarmActive;
+                    alarmInfo.HasOccurred = input.AlarmHasOccurred;
+                    alarmInfo.AlarmName = input.AlarmName;
+                    alarmInfo.AlarmType = input.AlarmType;
+                    alarmInfo.Priority = input.AlarmPriority;
+                    alarmInfo.Message = input.AlarmMessage;
+
+                    if (input.AlarmActive && !wasActive)
                     {
-                        if (!alarmInfo.PendingRemovalAt.HasValue)
-                        {
-                            alarmInfo.PendingRemovalAt = DateTime.UtcNow.Add(AcknowledgedAlarmRemovalDelay);
-                        }
-                    }
-                    else
-                    {
-                        alarmInfo.PendingRemovalAt = null;
+                        // A new occurrence of this alarm condition.
+                        alarmInfo.Timestamp = DateTime.UtcNow;
                     }
                 }
             }
 
             var enabledNames = new HashSet<string>(alarmEnabledInputs.Select(input => input.Name));
-            var now = DateTime.UtcNow;
-            foreach (var alarm in ActiveAlarms
-                .Where(alarm => !enabledNames.Contains(alarm.TagName)
-                    || (alarm.PendingRemovalAt.HasValue && alarm.PendingRemovalAt.Value <= now))
-                .ToList())
+            foreach (var alarm in ActiveAlarms.Where(alarm => !enabledNames.Contains(alarm.TagName)).ToList())
             {
                 ActiveAlarms.Remove(alarm);
                 if (SelectedAlarm == alarm)

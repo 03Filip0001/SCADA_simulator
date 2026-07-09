@@ -5,8 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ScadaGUI"
         mc:Ignorable="d"
-        Title="SCADA Application" Height="620" Width="1200" MinHeight="560" MinWidth="980"
-        Closing="Window_Closing">
+        Title="SCADA Application" Height="620" Width="1450" MinHeight="560" MinWidth="1200"
+        Closing="Window_Closing"
+        PreviewMouseDown="Window_PreviewMouseDown">
     <Window.Resources>
         <DataTemplate x:Key="SectionHeaderTemplate">
             <TextBlock Text="{Binding}" FontWeight="SemiBold" FontSize="14"
@@ -15,8 +16,8 @@
     </Window.Resources>
     <Grid Margin="16">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="1.8*"/>
             <ColumnDefinition Width="1.4*"/>
+            <ColumnDefinition Width="1.7*"/>
         </Grid.ColumnDefinitions>
 
         <Grid Grid.Column="0">
@@ -85,7 +86,7 @@
                 </StackPanel>
             </GroupBox>
 
-            <GroupBox Grid.Row="1" Header="Active Alarms" HeaderTemplate="{StaticResource SectionHeaderTemplate}" Padding="12">
+            <GroupBox Grid.Row="1" Header="Alarms" HeaderTemplate="{StaticResource SectionHeaderTemplate}" Padding="12">
                 <DockPanel>
                     <Button x:Name="AcknowledgeAlarmButton"
                             DockPanel.Dock="Bottom"
@@ -107,6 +108,44 @@
                               SelectionChanged="ActiveAlarmsGrid_SelectionChanged"
                               MinHeight="120"
                               CanUserAddRows="False">
+                        <DataGrid.RowStyle>
+                            <!-- State color coding: default is green (never fired, i.e.
+                                 HasOccurred=False). Once an alarm has fired (HasOccurred=
+                                 True) it defaults to red, whether still active or back
+                                 to normal, until acknowledged, since an unacknowledged
+                                 return-to-normal must still demand attention rather than
+                                 quietly go green. Acknowledging it then shows yellow while
+                                 still active, or green immediately once it's back to
+                                 normal (no yellow detour). -->
+                            <Style TargetType="DataGridRow" BasedOn="{StaticResource MaterialDesignDataGridRow}">
+                                <Setter Property="Background" Value="{DynamicResource AlarmInactiveBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource AlarmInactiveForegroundBrush}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasOccurred}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource AlarmActiveBrush}"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource AlarmActiveForegroundBrush}"/>
+                                    </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding HasOccurred}" Value="True"/>
+                                            <Condition Binding="{Binding IsAcknowledged}" Value="True"/>
+                                            <Condition Binding="{Binding IsActive}" Value="True"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Background" Value="{DynamicResource AlarmAcknowledgedBrush}"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource AlarmAcknowledgedForegroundBrush}"/>
+                                    </MultiDataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding HasOccurred}" Value="True"/>
+                                            <Condition Binding="{Binding IsAcknowledged}" Value="True"/>
+                                            <Condition Binding="{Binding IsActive}" Value="False"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Background" Value="{DynamicResource AlarmInactiveBrush}"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource AlarmInactiveForegroundBrush}"/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
                         <DataGrid.Resources>
                             <!-- Every column sizes to its own content (Width="Auto"),
                                  not to fill leftover space. Tag/Alarm can hold free-text
@@ -122,6 +161,8 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Tag" Binding="{Binding TagName}" Width="Auto" MinWidth="70" MaxWidth="150" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
                             <DataGridTextColumn Header="Alarm" Binding="{Binding AlarmName}" Width="Auto" MinWidth="60" MaxWidth="150" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
+                            <DataGridTextColumn Header="Low" Binding="{Binding LowLimit, StringFormat='F2'}" Width="Auto" MinWidth="50" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
+                            <DataGridTextColumn Header="High" Binding="{Binding HighLimit, StringFormat='F2'}" Width="Auto" MinWidth="50" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
                             <DataGridTextColumn Header="Pri." Binding="{Binding Priority}" Width="Auto" MinWidth="40" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
                             <DataGridTextColumn Header="Time" Binding="{Binding Timestamp, StringFormat='HH:mm:ss'}" Width="Auto" MinWidth="65" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
                             <DataGridCheckBoxColumn Header="Ack" Binding="{Binding IsAcknowledged}" Width="Auto" MinWidth="45"/>
