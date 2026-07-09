@@ -14,7 +14,6 @@
             <TextBlock Text="{Binding}" FontWeight="SemiBold" FontSize="14"
                        Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"/>
         </DataTemplate>
-        <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
         <converters:ValueWithUnitsConverter x:Key="ValueWithUnitsConverter"/>
     </Window.Resources>
     <Grid Margin="16">
@@ -74,7 +73,7 @@
                         Click="Button_UpdateTag"/>
                 <Button Content="Delete tag" Height="30" MinWidth="95" Margin="0,0,10,0"
                         Click="Button_DeleteTag"/>
-                <Button Content="Delete alarm" Height="30" MinWidth="95"
+                <Button x:Name="DeleteAlarmButton" Content="Delete alarm" Height="30" MinWidth="95"
                         Click="Button_DeleteAlarm"/>
             </WrapPanel>
         </Grid>
@@ -93,8 +92,8 @@
                     <TextBlock Text="{Binding SelectedTag.Address}" Margin="0,0,0,8"/>
                     <TextBlock Text="Type:" FontWeight="Bold"/>
                     <TextBlock Text="{Binding SelectedTag.Type}" Margin="0,0,0,8"/>
-                    <TextBlock Text="Unit:" FontWeight="Bold" Visibility="{Binding SelectedTag.Units, Converter={StaticResource StringToVisibilityConverter}}"/>
-                    <TextBlock Text="{Binding SelectedTag.Units}" Margin="0,0,0,8" Visibility="{Binding SelectedTag.Units, Converter={StaticResource StringToVisibilityConverter}}"/>
+                    <TextBlock Text="Unit:" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding SelectedTag.Units, FallbackValue=n/a, TargetNullValue=n/a}" Margin="0,0,0,8"/>
                 </StackPanel>
             </GroupBox>
 

@@ -271,9 +271,27 @@ namespace ScadaGUI
 
         private void Button_DeleteAlarm(object sender, RoutedEventArgs e)
         {
+            var selectedAlarms = ActiveAlarmsGrid.SelectedItems.OfType<AlarmInfo>().ToList();
+
+            if (selectedAlarms.Any())
+            {
+                foreach (var alarm in selectedAlarms)
+                {
+                    var alarmTag = IOElements.OfType<AnalogInput>().FirstOrDefault(tag => tag.Name == alarm.TagName);
+                    if (alarmTag != null && alarmTag.AlarmEnabled)
+                    {
+                        DeleteAlarmFor(alarmTag);
+                    }
+                }
+
+                SyncActiveAlarmsFromTags();
+                OnPropertyChanged(nameof(SelectedTag));
+                return;
+            }
+
             if (!(SelectedTag is AnalogInput analogInput))
             {
-                MessageBox.Show("Select an analog input tag to delete its alarm.", "Delete Alarm", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Select an analog input tag or an alarm to delete its alarm.", "Delete Alarm", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -283,12 +301,17 @@ namespace ScadaGUI
                 return;
             }
 
+            DeleteAlarmFor(analogInput);
+            SyncActiveAlarmsFromTags();
+            OnPropertyChanged(nameof(SelectedTag));
+        }
+
+        private void DeleteAlarmFor(AnalogInput analogInput)
+        {
             analogInput.ClearAlarm();
             RemoveActiveAlarmsForTag(analogInput.Name);
             DeleteAlarmConfiguration(analogInput.Name);
             SystemLogger.Log($"Alarm deleted for tag: {analogInput.Name}");
-            SyncActiveAlarmsFromTags();
-            OnPropertyChanged(nameof(SelectedTag));
         }
 
         private void CreateFromDialog(AddWindow addwindow)
@@ -544,10 +567,9 @@ namespace ScadaGUI
 
             var clickedElement = e.OriginalSource as DependencyObject;
 
-            // Clicking inside the grid itself (to change/extend the selection) or on
-            // the Acknowledge button (to act on the current selection) must not clear
-            // it; clicking anywhere else in the window should.
-            if (IsDescendantOf(clickedElement, ActiveAlarmsGrid) || IsDescendantOf(clickedElement, AcknowledgeAlarmButton))
+            if (IsDescendantOf(clickedElement, ActiveAlarmsGrid)
+                || IsDescendantOf(clickedElement, AcknowledgeAlarmButton)
+                || IsDescendantOf(clickedElement, DeleteAlarmButton))
             {
                 return;
             }
