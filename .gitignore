@@ -17,3 +17,4 @@ bin/
 packages/
 *.nuget.props
 *.nuget.targets
+*.md

@@ -49,6 +49,17 @@ namespace ScadaGUI
         public bool DialogResultHasAlarmSettings { get; set; }
         public IAnalogInput DialogResultAlarmTarget { get; set; }
 
+        // Per-type tag fields (CP-2). Kept separate from the alarm low/high pair
+        // above so editing an alarmed AI never mixes the two.
+        public double DialogResultScanTime { get; set; } = 1.0;
+        public bool DialogResultScanOn { get; set; } = true;
+        public double DialogResultIoLowLimit { get; set; }
+        public double DialogResultIoHighLimit { get; set; } = 100;
+        public bool DialogResultHasLimits { get; set; }
+        public double DialogResultInitialValue { get; set; }
+        public double DialogResultDeadband { get; set; } = 0.5;
+        public double DialogResultHysteresis { get; set; } = 0.5;
+
         // public IAlarm DialogResultAlarm {get; set;}
         public AddWindow()
             : this(Enumerable.Empty<ITag>())
@@ -82,6 +93,16 @@ namespace ScadaGUI
             panelAlarm.Visibility = Visibility.Collapsed;
             panelIO.Visibility = Visibility.Collapsed;
 
+            // Sensible defaults so a new tag can be created without forcing the
+            // user to fill every numeric field. Formatted with the current
+            // culture to round-trip through the (culture-sensitive) parsing.
+            TextBoxScanTime.Text = (1.0).ToString();
+            TextBoxLowLimitIO.Text = (0.0).ToString();
+            TextBoxHighLimitIO.Text = (100.0).ToString();
+            TextBoxInitialValue.Text = (0.0).ToString();
+            TextBoxDeadband.Text = (0.5).ToString();
+            TextBoxHysteresis.Text = (0.5).ToString();
+
             if (tagToEdit != null)
             {
                 Title = "Update Tag";
@@ -98,6 +119,25 @@ namespace ScadaGUI
                     TextBoxUnits.Text = analogCommon.Units;
                     TextBlockUnits.Visibility = Visibility.Visible;
                     TextBoxUnits.Visibility = Visibility.Visible;
+                    TextBoxLowLimitIO.Text = analogCommon.LowLimit.ToString();
+                    TextBoxHighLimitIO.Text = analogCommon.HighLimit.ToString();
+                }
+
+                if (tagToEdit is IInputCommon inputCommon)
+                {
+                    TextBoxScanTime.Text = inputCommon.ScanTime.ToString();
+                    CheckBoxScanOn.IsChecked = inputCommon.ScanOn;
+                }
+
+                if (tagToEdit is IOutputCommon outputCommon)
+                {
+                    TextBoxInitialValue.Text = outputCommon.InitialValue.ToString();
+                }
+
+                if (tagToEdit is DataConcentrator.Model.AnalogInput analogInputToEdit)
+                {
+                    TextBoxDeadband.Text = analogInputToEdit.Deadband.ToString();
+                    TextBoxHysteresis.Text = analogInputToEdit.Hysteresis.ToString();
                 }
 
                 if (tagToEdit is DataConcentrator.Model.AnalogInput analogInput && analogInput.AlarmEnabled)
@@ -146,13 +186,44 @@ namespace ScadaGUI
                 if (panelAlarm != null) panelAlarm.Visibility = Visibility.Collapsed;
             }
 
-            var unitsVisibility = (item.ToString() == "AI" || item.ToString() == "AO")
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-            TextBlockUnits.Visibility = unitsVisibility;
-            TextBoxUnits.Visibility = unitsVisibility;
+            SetIoFieldVisibility(item.ToString());
 
             UpdateCreateButtonState();
+        }
+
+        // Per-type field visibility (CP-2). Follows the spec: scan fields for
+        // input tags, limits/units for analog tags, initial value for outputs,
+        // deadband/hysteresis for AI only.
+        private void SetIoFieldVisibility(string type)
+        {
+            bool isAI = type == "AI";
+            bool isAO = type == "AO";
+            bool isDI = type == "DI";
+            bool isDO = type == "DO";
+
+            Visibility analog = (isAI || isAO) ? Visibility.Visible : Visibility.Collapsed;
+            TextBlockUnits.Visibility = analog;
+            TextBoxUnits.Visibility = analog;
+            TextBlockLowLimitIO.Visibility = analog;
+            TextBoxLowLimitIO.Visibility = analog;
+            TextBlockHighLimitIO.Visibility = analog;
+            TextBoxHighLimitIO.Visibility = analog;
+
+            Visibility scan = (isAI || isDI) ? Visibility.Visible : Visibility.Collapsed;
+            TextBlockScanTime.Visibility = scan;
+            TextBoxScanTime.Visibility = scan;
+            TextBlockScanOn.Visibility = scan;
+            CheckBoxScanOn.Visibility = scan;
+
+            Visibility output = (isAO || isDO) ? Visibility.Visible : Visibility.Collapsed;
+            TextBlockInitialValue.Visibility = output;
+            TextBoxInitialValue.Visibility = output;
+
+            Visibility analogInput = isAI ? Visibility.Visible : Visibility.Collapsed;
+            TextBlockDeadband.Visibility = analogInput;
+            TextBoxDeadband.Visibility = analogInput;
+            TextBlockHysteresis.Visibility = analogInput;
+            TextBoxHysteresis.Visibility = analogInput;
         }
 
         private void UpdateCreateButtonState()
@@ -166,6 +237,104 @@ namespace ScadaGUI
         private void LogValidationFailure(string reason)
         {
             SystemLogger.LogError($"Failed to {(tagToEdit != null ? "update" : "create")} tag: {reason}");
+        }
+
+        private void ShowValidationError(string reason)
+        {
+            LogValidationFailure(reason);
+            var message = char.ToUpperInvariant(reason[0]) + reason.Substring(1) + ".";
+            MessageBox.Show(message, "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        // Validates and captures the per-type numeric fields (CP-2).
+        // Returns false (and shows the error) when a field is invalid.
+        private bool TryReadIoFields(string type)
+        {
+            bool isAI = type == "AI";
+            bool isAO = type == "AO";
+            bool isDI = type == "DI";
+            bool isDO = type == "DO";
+
+            if (isAI || isDI)
+            {
+                if (!double.TryParse(TextBoxScanTime.Text, out double scanTime))
+                {
+                    ShowValidationError("scan time must be a valid number");
+                    return false;
+                }
+
+                if (scanTime <= 0)
+                {
+                    ShowValidationError("scan time must be greater than zero");
+                    return false;
+                }
+
+                DialogResultScanTime = scanTime;
+                DialogResultScanOn = CheckBoxScanOn.IsChecked == true;
+            }
+
+            if (isAI || isAO)
+            {
+                if (!double.TryParse(TextBoxLowLimitIO.Text, out double lowLimit))
+                {
+                    ShowValidationError("low limit must be a valid number");
+                    return false;
+                }
+
+                if (!double.TryParse(TextBoxHighLimitIO.Text, out double highLimit))
+                {
+                    ShowValidationError("high limit must be a valid number");
+                    return false;
+                }
+
+                if (highLimit <= lowLimit)
+                {
+                    ShowValidationError("high limit must be greater than the low limit");
+                    return false;
+                }
+
+                DialogResultIoLowLimit = lowLimit;
+                DialogResultIoHighLimit = highLimit;
+                DialogResultHasLimits = true;
+            }
+
+            if (isAI)
+            {
+                if (!double.TryParse(TextBoxDeadband.Text, out double deadband) || deadband < 0)
+                {
+                    ShowValidationError("deadband must be a number greater than or equal to zero");
+                    return false;
+                }
+
+                if (!double.TryParse(TextBoxHysteresis.Text, out double hysteresis) || hysteresis < 0)
+                {
+                    ShowValidationError("hysteresis must be a number greater than or equal to zero");
+                    return false;
+                }
+
+                DialogResultDeadband = deadband;
+                DialogResultHysteresis = hysteresis;
+            }
+
+            if (isAO || isDO)
+            {
+                if (!double.TryParse(TextBoxInitialValue.Text, out double initialValue))
+                {
+                    ShowValidationError("initial value must be a valid number");
+                    return false;
+                }
+
+                if (isAO && DialogResultHasLimits
+                    && (initialValue < DialogResultIoLowLimit || initialValue > DialogResultIoHighLimit))
+                {
+                    ShowValidationError("initial value must be within the low and high limits");
+                    return false;
+                }
+
+                DialogResultInitialValue = initialValue;
+            }
+
+            return true;
         }
 
         public void Button_Create(object sender, RoutedEventArgs e)
@@ -240,6 +409,11 @@ namespace ScadaGUI
                 {
                     LogValidationFailure($"duplicate tag name '{this.DialogResultName}'");
                     MessageBox.Show("A tag with this name already exists.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (!TryReadIoFields(this.DialogResultType))
+                {
                     return;
                 }
             }

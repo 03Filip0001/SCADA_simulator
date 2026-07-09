@@ -35,10 +35,17 @@
                     </Grid.ColumnDefinitions>
 
                     <Grid.RowDefinitions>
-                        <RowDefinition/>
-                        <RowDefinition/>
-                        <RowDefinition/>
-                        <RowDefinition/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Column="0" Margin="15" Text="Ime taga: "/>
@@ -52,6 +59,28 @@
 
                     <TextBlock Grid.Row="3" Margin="15" Text="Unit: " x:Name="TextBlockUnits" Visibility="Collapsed"/>
                     <TextBox Grid.Row="3" Grid.Column="1" Margin="15" Width="200" HorizontalAlignment="Left" x:Name="TextBoxUnits" Visibility="Collapsed"/>
+
+                    <TextBlock Grid.Row="4" Margin="15" Text="Scan time (s): " x:Name="TextBlockScanTime" Visibility="Collapsed"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" Margin="15" Width="200" HorizontalAlignment="Left" x:Name="TextBoxScanTime" Visibility="Collapsed"/>
+
+                    <TextBlock Grid.Row="5" Margin="15" Text="Scan: " x:Name="TextBlockScanOn" Visibility="Collapsed"/>
+                    <CheckBox Grid.Row="5" Grid.Column="1" Margin="15" HorizontalAlignment="Left" VerticalAlignment="Center"
+                              Content="On" IsChecked="True" x:Name="CheckBoxScanOn" Visibility="Collapsed"/>
+
+                    <TextBlock Grid.Row="6" Margin="15" Text="Low limit: " x:Name="TextBlockLowLimitIO" Visibility="Collapsed"/>
+                    <TextBox Grid.Row="6" Grid.Column="1" Margin="15" Width="200" HorizontalAlignment="Left" x:Name="TextBoxLowLimitIO" Visibility="Collapsed"/>
+
+                    <TextBlock Grid.Row="7" Margin="15" Text="High limit: " x:Name="TextBlockHighLimitIO" Visibility="Collapsed"/>
+                    <TextBox Grid.Row="7" Grid.Column="1" Margin="15" Width="200" HorizontalAlignment="Left" x:Name="TextBoxHighLimitIO" Visibility="Collapsed"/>
+
+                    <TextBlock Grid.Row="8" Margin="15" Text="Initial value: " x:Name="TextBlockInitialValue" Visibility="Collapsed"/>
+                    <TextBox Grid.Row="8" Grid.Column="1" Margin="15" Width="200" HorizontalAlignment="Left" x:Name="TextBoxInitialValue" Visibility="Collapsed"/>
+
+                    <TextBlock Grid.Row="9" Margin="15" Text="Deadband: " x:Name="TextBlockDeadband" Visibility="Collapsed"/>
+                    <TextBox Grid.Row="9" Grid.Column="1" Margin="15" Width="200" HorizontalAlignment="Left" x:Name="TextBoxDeadband" Visibility="Collapsed"/>
+
+                    <TextBlock Grid.Row="10" Margin="15" Text="Hysteresis: " x:Name="TextBlockHysteresis" Visibility="Collapsed"/>
+                    <TextBox Grid.Row="10" Grid.Column="1" Margin="15" Width="200" HorizontalAlignment="Left" x:Name="TextBoxHysteresis" Visibility="Collapsed"/>
 
                 </Grid>
 

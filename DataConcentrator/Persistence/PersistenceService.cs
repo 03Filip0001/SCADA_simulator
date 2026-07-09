@@ -90,6 +90,7 @@ namespace DataConcentrator.Persistence
 
                             RestoreAnalogSettings(tag, record);
                             RestoreDigitalSettings(tag, record);
+                            RestoreOutputSettings(tag, record);
 
                             tags.Add(tag);
                         }
@@ -660,6 +661,20 @@ namespace DataConcentrator.Persistence
             }
         }
 
+        private static void RestoreOutputSettings(ITag tag, TagEntity record)
+        {
+            if (tag is AnalogOutput analogOutput)
+            {
+                analogOutput.InitialValue = record.InitialValue ?? analogOutput.InitialValue;
+                analogOutput.RestoreCurrentValue(record.CurrentValue ?? analogOutput.InitialValue);
+            }
+            else if (tag is DigitalOutput digitalOutput)
+            {
+                digitalOutput.InitialValue = record.InitialValue ?? digitalOutput.InitialValue;
+                digitalOutput.RestoreCurrentState(record.CurrentState ?? digitalOutput.InitialValue != 0);
+            }
+        }
+
         private static void CopyTagToRecord(ITag tag, TagEntity record)
         {
             record.Name = tag.Name;
@@ -690,6 +705,18 @@ namespace DataConcentrator.Persistence
             if (tag is DigitalInput digitalInput)
             {
                 record.CurrentState = digitalInput.CurrentState;
+            }
+
+            if (tag is AnalogOutput analogOutput)
+            {
+                record.CurrentValue = analogOutput.CurrentValue;
+                record.InitialValue = analogOutput.InitialValue;
+            }
+
+            if (tag is DigitalOutput digitalOutput)
+            {
+                record.CurrentState = digitalOutput.CurrentState;
+                record.InitialValue = digitalOutput.InitialValue;
             }
         }
 

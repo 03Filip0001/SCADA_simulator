@@ -116,6 +116,7 @@ namespace ScadaGUI
             foreach (var element in IOElements)
             {
                 RegisterInputIfNeeded(element);
+                PushRestoredOutputValue(element);
             }
 
             alarmRefreshTimer = new DispatcherTimer
@@ -127,6 +128,21 @@ namespace ScadaGUI
             SyncActiveAlarmsFromTags();
 
             DataContext = this;
+            UpdateSelectedTagPanels();
+        }
+
+        // On startup output tags restore their last written value; push it back
+        // to the PLC Simulator so the simulated address matches (CP-3/CP-4).
+        private void PushRestoredOutputValue(ITag tag)
+        {
+            if (tag is IAnalogOutput analogOutput)
+            {
+                _plc.WriteOutput(tag, analogOutput.CurrentValue, out _);
+            }
+            else if (tag is IDigitalOutput digitalOutput)
+            {
+                _plc.WriteOutput(tag, digitalOutput.CurrentValue, out _);
+            }
         }
 
         private void LoadPersistedTagsOrDefaults(ITagBuilder builder)
@@ -244,6 +260,39 @@ namespace ScadaGUI
             MessageBox.Show(details, "Tag Details", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
+        // CP-9: lists the alarms attached to the selected analog input with
+        // their current state.
+        private void Button_ShowDetails(object sender, RoutedEventArgs e)
+        {
+            if (!(SelectedTag is AnalogInput analogInput))
+            {
+                MessageBox.Show("Select an analog input tag to view its alarms.", "Alarm Details", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (!analogInput.AlarmEnabled)
+            {
+                MessageBox.Show($"'{analogInput.Name}' has no alarms configured.", "Alarm Details", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            string state = analogInput.AlarmActive
+                ? (analogInput.AlarmAcknowledged ? "Acknowledged" : "Active")
+                : (analogInput.AlarmHasOccurred ? "Unacknowledged (returned to normal)" : "Inactive");
+
+            string details =
+                $"Alarms for {analogInput.Name}:\n\n" +
+                $"- {analogInput.AlarmName}\n" +
+                $"   Type: {analogInput.AlarmType}\n" +
+                $"   Low limit: {analogInput.LowLimit}\n" +
+                $"   High limit: {analogInput.HighLimit}\n" +
+                $"   Priority: {analogInput.AlarmPriority}\n" +
+                $"   State: {state}\n" +
+                $"   Message: {analogInput.AlarmMessage}";
+
+            MessageBox.Show(details, "Alarm Details", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
         private void Button_DeleteTag(object sender, RoutedEventArgs e)
         {
             if (SelectedTag == null)
@@ -356,8 +405,16 @@ namespace ScadaGUI
             }
 
             ApplyTagValues(newTag, addwindow.DialogResultName, addwindow.DialogResultAddress, addwindow.DialogResultDescription, addwindow.DialogResultUnits, tagType);
+            ApplyExtendedTagValues(newTag, addwindow);
             IOElements.Add(newTag);
             RegisterInputIfNeeded(newTag);
+
+            // Output tags push their initial value to the PLC on creation.
+            if (newTag is IOutputCommon outputCommon)
+            {
+                WriteOutputValue(newTag, outputCommon.InitialValue, persist: false);
+            }
+
             SaveTag(newTag);
             SystemLogger.Log($"Tag created: {newTag.Name}");
             FilteredIOElements.Refresh();
@@ -375,6 +432,7 @@ namespace ScadaGUI
             }
 
             ApplyTagValues(tagToUpdate, addwindow.DialogResultName, addwindow.DialogResultAddress, addwindow.DialogResultDescription, addwindow.DialogResultUnits, tagToUpdate.Type);
+            ApplyExtendedTagValues(tagToUpdate, addwindow);
 
             if (addwindow.DialogResultHasAlarmSettings && tagToUpdate is AnalogInput alarmTarget)
             {
@@ -439,6 +497,59 @@ namespace ScadaGUI
             }
         }
 
+        // Applies the per-type fields captured by AddWindow (CP-2): scan
+        // settings for inputs, limits for analog tags, deadband/hysteresis for
+        // AI, initial value for outputs.
+        private void ApplyExtendedTagValues(ITag tag, AddWindow addwindow)
+        {
+            if (tag is IInputCommon input && (tag.Type == Tag_Type.AI || tag.Type == Tag_Type.DI))
+            {
+                input.ScanTime = addwindow.DialogResultScanTime;
+                input.ScanOn = addwindow.DialogResultScanOn;
+            }
+
+            if (addwindow.DialogResultHasLimits && tag is IAnalogCommon analogCommon)
+            {
+                analogCommon.LowLimit = addwindow.DialogResultIoLowLimit;
+                analogCommon.HighLimit = addwindow.DialogResultIoHighLimit;
+            }
+
+            if (tag is AnalogInput analogInput)
+            {
+                analogInput.Deadband = addwindow.DialogResultDeadband;
+                analogInput.Hysteresis = addwindow.DialogResultHysteresis;
+            }
+
+            if (tag is IOutputCommon output && (tag.Type == Tag_Type.AO || tag.Type == Tag_Type.DO))
+            {
+                output.InitialValue = addwindow.DialogResultInitialValue;
+            }
+        }
+
+        // Writes a value to an output tag through the PLC (never touches the
+        // simulator directly), reflects it in the grid, persists it and logs it.
+        private void WriteOutputValue(ITag tag, double value, bool persist = true)
+        {
+            if (!_plc.WriteOutput(tag, value, out string error))
+            {
+                if (!string.IsNullOrWhiteSpace(error))
+                {
+                    MessageBox.Show(error, "Write Output", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+
+                return;
+            }
+
+            SystemLogger.Log($"Value written to output '{tag.Name}': {value}");
+
+            if (persist)
+            {
+                SaveTag(tag);
+            }
+
+            UpdateSelectedTagPanels();
+        }
+
         private void RegisterInputIfNeeded(ITag tag)
         {
             if (tag.Type == Tag_Type.AI || tag.Type == Tag_Type.DI)
@@ -493,6 +604,71 @@ namespace ScadaGUI
             }
         }
 
+        // CP-10: writes a .txt report of every AI history record whose value was
+        // within (HighLimit + LowLimit)/2 +/- 5, grouped per tag.
+        private void Button_GenerateReport(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var analogInputs = IOElements.OfType<AnalogInput>().ToList();
+                var builder = new System.Text.StringBuilder();
+                builder.AppendLine("SCADA Analog Input Report");
+                builder.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                builder.AppendLine();
+
+                int totalMatches = 0;
+
+                foreach (var analogInput in analogInputs)
+                {
+                    double midpoint = (analogInput.HighLimit + analogInput.LowLimit) / 2.0;
+                    double lowerBound = midpoint - 5;
+                    double upperBound = midpoint + 5;
+
+                    var history = PersistenceService.GetHistory(analogInput.Name, out string historyError);
+                    if (!string.IsNullOrWhiteSpace(historyError))
+                    {
+                        ShowPersistenceWarning(historyError);
+                    }
+
+                    var matches = history
+                        .Where(record => record.Value >= lowerBound && record.Value <= upperBound)
+                        .ToList();
+
+                    builder.AppendLine($"Tag: {analogInput.Name} (Address {analogInput.Address}) - window {lowerBound:F2}..{upperBound:F2} [midpoint {midpoint:F2}]");
+                    if (matches.Count == 0)
+                    {
+                        builder.AppendLine("  (no matching records)");
+                    }
+                    else
+                    {
+                        foreach (var record in matches)
+                        {
+                            builder.AppendLine($"  {record.Timestamp.ToLocalTime():yyyy-MM-dd HH:mm:ss}  {record.Value:F2}");
+                        }
+                    }
+
+                    builder.AppendLine();
+                    totalMatches += matches.Count;
+                }
+
+                string fileName = $"Report_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+                string path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
+                System.IO.File.WriteAllText(path, builder.ToString());
+
+                SystemLogger.Log($"Report generated: {path} ({totalMatches} matching records).");
+                MessageBox.Show(
+                    $"Report saved to:\n{path}\n\n{totalMatches} matching record(s).",
+                    "Report",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                SystemLogger.LogError("Report generation failed.", ex);
+                MessageBox.Show($"Unable to generate report: {ex.Message}", "Report", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void Button_ShowHistory(object sender, RoutedEventArgs e)
         {
             if (SelectedTag == null)
@@ -504,6 +680,93 @@ namespace ScadaGUI
             var historyWindow = new HistoryWindow(SelectedTag);
             historyWindow.Owner = this;
             historyWindow.ShowDialog();
+        }
+
+        private void TagsGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            UpdateSelectedTagPanels();
+        }
+
+        // Shows the write control for the selected output tag and the scan
+        // toggle for the selected input tag (CP-4, CP-5); hides them otherwise.
+        private void UpdateSelectedTagPanels()
+        {
+            if (WritePanelAnalog == null)
+            {
+                return;
+            }
+
+            var tag = SelectedTag;
+
+            WritePanelAnalog.Visibility = tag is IAnalogOutput ? Visibility.Visible : Visibility.Collapsed;
+            WritePanelDigital.Visibility = tag is IDigitalOutput ? Visibility.Visible : Visibility.Collapsed;
+
+            bool isInput = tag != null && (tag.Type == Tag_Type.AI || tag.Type == Tag_Type.DI);
+            ScanTogglePanel.Visibility = isInput ? Visibility.Visible : Visibility.Collapsed;
+
+            if (tag is IAnalogOutput analogOutput)
+            {
+                WriteValueBox.Text = analogOutput.CurrentValue.ToString();
+            }
+
+            if (tag is IDigitalOutput digitalOutput)
+            {
+                DigitalStateCheck.IsChecked = digitalOutput.CurrentValue != 0;
+            }
+
+            if (tag is IInputCommon input)
+            {
+                ScanOnCheck.IsChecked = input.ScanOn;
+            }
+        }
+
+        private void Button_WriteAnalog(object sender, RoutedEventArgs e)
+        {
+            if (!(SelectedTag is IAnalogOutput analogOutput))
+            {
+                return;
+            }
+
+            if (!double.TryParse(WriteValueBox.Text, out double value))
+            {
+                MessageBox.Show("Enter a valid number to write.", "Write Output", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (value < analogOutput.LowLimit || value > analogOutput.HighLimit)
+            {
+                MessageBox.Show(
+                    $"Value must be within the limits [{analogOutput.LowLimit} .. {analogOutput.HighLimit}].",
+                    "Write Output",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            WriteOutputValue(SelectedTag, value);
+        }
+
+        private void CheckBox_WriteDigital(object sender, RoutedEventArgs e)
+        {
+            if (!(SelectedTag is IDigitalOutput))
+            {
+                return;
+            }
+
+            double value = DigitalStateCheck.IsChecked == true ? 1 : 0;
+            WriteOutputValue(SelectedTag, value);
+        }
+
+        private void CheckBox_ToggleScan(object sender, RoutedEventArgs e)
+        {
+            if (!(SelectedTag is IInputCommon input))
+            {
+                return;
+            }
+
+            input.ScanOn = ScanOnCheck.IsChecked == true;
+            SaveTag(SelectedTag);
+            SystemLogger.Log($"Scan {(input.ScanOn ? "enabled" : "disabled")} for tag: {SelectedTag.Name}");
         }
 
         private void Button_AcknowledgeAlarm(object sender, RoutedEventArgs e)

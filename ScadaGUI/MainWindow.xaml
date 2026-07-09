@@ -37,17 +37,46 @@
                               ItemsSource="{Binding TagFilterOptions}"
                               SelectedItem="{Binding SelectedTagTypeFilter, UpdateSourceTrigger=PropertyChanged}"/>
                     <Button Content="Open History" Height="30" MinWidth="120" Margin="12,0,0,0" Click="Button_ShowHistory"/>
+                    <Button Content="Report" Height="30" MinWidth="100" Margin="12,0,0,0" Click="Button_GenerateReport"/>
                 </WrapPanel>
                 <Button x:Name="ThemeToggleButton" Content="Switch to Dark" Height="30" MinWidth="120"
                         HorizontalAlignment="Left" Margin="0,10,0,0" Click="Button_ToggleTheme"/>
             </StackPanel>
 
             <DataGrid Grid.Row="1"
+                      x:Name="TagsGrid"
                       ItemsSource="{Binding FilteredIOElements}"
                       AutoGenerateColumns="False"
                       SelectedItem="{Binding SelectedTag, Mode=TwoWay}"
+                      SelectionChanged="TagsGrid_SelectionChanged"
                       IsReadOnly="True"
                       Margin="0,0,0,16">
+                <DataGrid.RowStyle>
+                    <!-- CP-8: an AI tag row turns red while its alarm is active
+                         and unacknowledged, yellow once acknowledged, and back
+                         to normal when the value leaves the alarm zone. Non-AI
+                         rows have no alarm bindings, so no trigger fires. -->
+                    <Style TargetType="DataGridRow" BasedOn="{StaticResource MaterialDesignDataGridRow}">
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding AlarmActive}" Value="True"/>
+                                    <Condition Binding="{Binding AlarmAcknowledged}" Value="False"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Background" Value="{DynamicResource AlarmActiveBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource AlarmActiveForegroundBrush}"/>
+                            </MultiDataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding AlarmActive}" Value="True"/>
+                                    <Condition Binding="{Binding AlarmAcknowledged}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Background" Value="{DynamicResource AlarmAcknowledgedBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource AlarmAcknowledgedForegroundBrush}"/>
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="120"/>
                     <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="100"/>
@@ -69,6 +98,8 @@
                         Click="Button_AddTag"/>
                 <Button Content="View tag" Height="30" MinWidth="95" Margin="0,0,10,0"
                         Click="Button_ViewTag"/>
+                <Button Content="Details" Height="30" MinWidth="95" Margin="0,0,10,0"
+                        Click="Button_ShowDetails"/>
                 <Button Content="Update tag" Height="30" MinWidth="95" Margin="0,0,10,0"
                         Click="Button_UpdateTag"/>
                 <Button Content="Delete tag" Height="30" MinWidth="95" Margin="0,0,10,0"
@@ -94,6 +125,24 @@
                     <TextBlock Text="{Binding SelectedTag.Type}" Margin="0,0,0,8"/>
                     <TextBlock Text="Unit:" FontWeight="Bold"/>
                     <TextBlock Text="{Binding SelectedTag.Units, FallbackValue=n/a, TargetNullValue=n/a}" Margin="0,0,0,8"/>
+
+                    <StackPanel x:Name="WritePanelAnalog" Visibility="Collapsed" Margin="0,4,0,0">
+                        <TextBlock Text="Write value:" FontWeight="Bold"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBox x:Name="WriteValueBox" Width="120" VerticalAlignment="Center"/>
+                            <Button Content="Write" MinWidth="70" Height="28" Margin="8,0,0,0" Click="Button_WriteAnalog"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel x:Name="WritePanelDigital" Visibility="Collapsed" Margin="0,4,0,0">
+                        <TextBlock Text="Output state:" FontWeight="Bold"/>
+                        <CheckBox x:Name="DigitalStateCheck" Content="On" Margin="0,4,0,0" Click="CheckBox_WriteDigital"/>
+                    </StackPanel>
+
+                    <StackPanel x:Name="ScanTogglePanel" Visibility="Collapsed" Margin="0,4,0,0">
+                        <TextBlock Text="Scanning:" FontWeight="Bold"/>
+                        <CheckBox x:Name="ScanOnCheck" Content="Scan On" Margin="0,4,0,0" Click="CheckBox_ToggleScan"/>
+                    </StackPanel>
                 </StackPanel>
             </GroupBox>
 

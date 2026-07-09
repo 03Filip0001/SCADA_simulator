@@ -1,9 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using Contracts;
 using DataConcentrator.Model;
 
@@ -12,8 +10,9 @@ namespace DataConcentrator
     public class PLC
     {
         private readonly IPLCSimulatorManager _plc;
-        private readonly Dictionary<string, Thread> scanThreads = new Dictionary<string, Thread>();
-        private readonly Dictionary<string, List<ITag>> scannedTagsByAddress = new Dictionary<string, List<ITag>>();
+        // One scan thread per input tag so each tag can be polled at its own
+        // ScanTime (the spec requires per-tag scan periods).
+        private readonly Dictionary<ITag, Thread> scanThreads = new Dictionary<ITag, Thread>();
         private readonly object syncRoot = new object();
         private volatile bool _running = true;
 
@@ -89,7 +88,10 @@ namespace DataConcentrator
 
             lock (syncRoot)
             {
-                IOElements.Add(tag);
+                if (!IOElements.Contains(tag))
+                {
+                    IOElements.Add(tag);
+                }
 
                 if (tag is AnalogInput analogInput)
                 {
@@ -102,24 +104,15 @@ namespace DataConcentrator
                     digitalInput.StartScan();
                 }
 
-                var address = tag.Address ?? string.Empty;
-                if (!scannedTagsByAddress.TryGetValue(address, out var tagList))
+                if (!scanThreads.ContainsKey(tag))
                 {
-                    tagList = new List<ITag>();
-                    scannedTagsByAddress[address] = tagList;
-                }
-
-                tagList.Add(tag);
-
-                if (!scanThreads.ContainsKey(address))
-                {
-                    threadToStart = new Thread(() => ScanAddress(address))
+                    threadToStart = new Thread(() => ScanTag(tag))
                     {
                         IsBackground = true,
-                        Name = $"Scan-{address}"
+                        Name = $"Scan-{tag.Address}"
                     };
 
-                    scanThreads[address] = threadToStart;
+                    scanThreads[tag] = threadToStart;
                 }
             }
 
@@ -153,82 +146,101 @@ namespace DataConcentrator
                     digitalInput.StopScan();
                 }
 
-                var address = tag.Address ?? string.Empty;
-                if (scannedTagsByAddress.TryGetValue(address, out var tagList))
-                {
-                    tagList.Remove(tag);
-                    if (tagList.Count == 0)
-                    {
-                        scannedTagsByAddress.Remove(address);
-                        scanThreads.Remove(address);
-                    }
-                }
+                // Removing the tag from the dictionary makes its scan thread
+                // notice on its next iteration that it is no longer registered
+                // and exit.
+                scanThreads.Remove(tag);
             }
 
             return true;
         }
 
-        private void ScanAddress(string address)
+        // Writes a value into an output tag: pushes it to the PLC Simulator and
+        // updates the tag so the GUI reflects it. Returns false with a reason
+        // when the tag is not an output.
+        public bool WriteOutput(ITag tag, double value, out string errorMessage)
+        {
+            errorMessage = null;
+
+            if (tag == null)
+            {
+                errorMessage = "No tag selected.";
+                return false;
+            }
+
+            try
+            {
+                if (tag is AnalogOutput analogOutput)
+                {
+                    _plc.SetAnalogValue(tag.Address, value);
+                    analogOutput.ApplyWrite(value);
+                    return true;
+                }
+
+                if (tag is DigitalOutput digitalOutput)
+                {
+                    double normalized = value != 0 ? 1 : 0;
+                    _plc.SetDigitalValue(tag.Address, normalized);
+                    digitalOutput.ApplyWrite(normalized);
+                    return true;
+                }
+
+                errorMessage = "Selected tag is not an output tag.";
+                return false;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                SystemLogger.LogError($"Failed to write value to output '{tag.Name}'.", ex);
+                return false;
+            }
+        }
+
+        private void ScanTag(ITag tag)
         {
             while (_running)
             {
-                List<ITag> tags;
-
                 lock (syncRoot)
                 {
-                    if (!scannedTagsByAddress.TryGetValue(address, out var tagList))
+                    if (!scanThreads.ContainsKey(tag))
                     {
                         break;
                     }
-
-                    if (tagList.Count == 0)
-                    {
-                        break;
-                    }
-
-                    tags = tagList.ToList();
                 }
 
-                double? analogValue = null;
+                double scanSeconds = 0.5;
+
                 try
-                {
-                    analogValue = _plc.GetAnalogValue(address);
-                }
-                catch (Exception ex)
-                {
-                    // failure reading value should not crash the scanner thread
-                    SystemLogger.LogError($"PLC communication failed for address '{address}'.", ex);
-                }
-
-                foreach (var tag in tags)
                 {
                     if (tag is AnalogInput analogInput)
                     {
-                        if (!analogInput.ScanOn)
+                        scanSeconds = analogInput.ScanTime > 0 ? analogInput.ScanTime : 0.5;
+                        if (analogInput.ScanOn)
                         {
-                            continue;
-                        }
-
-                        if (analogValue.HasValue)
-                        {
-                            analogInput.UpdateValue(analogValue.Value);
+                            analogInput.UpdateValue(_plc.GetAnalogValue(tag.Address));
                         }
                     }
                     else if (tag is DigitalInput digitalInput)
                     {
-                        if (!digitalInput.ScanOn)
+                        scanSeconds = digitalInput.ScanTime > 0 ? digitalInput.ScanTime : 0.5;
+                        if (digitalInput.ScanOn)
                         {
-                            continue;
-                        }
-
-                        if (analogValue.HasValue)
-                        {
-                            digitalInput.UpdateState(analogValue.Value != 0);
+                            digitalInput.UpdateState(_plc.GetAnalogValue(tag.Address) != 0);
                         }
                     }
+                    else
+                    {
+                        // Not an input tag; nothing to scan.
+                        break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // failure reading value should not crash the scanner thread
+                    SystemLogger.LogError($"PLC communication failed for tag '{tag.Name}'.", ex);
                 }
 
-                Thread.Sleep(TimeSpan.FromSeconds(0.5));
+                Thread.Sleep(TimeSpan.FromSeconds(scanSeconds > 0 ? scanSeconds : 0.5));
             }
         }
 
@@ -242,5 +254,4 @@ namespace DataConcentrator
             AlarmCleared?.Invoke(source.Name);
         }
     }
-
 }

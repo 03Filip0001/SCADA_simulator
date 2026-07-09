@@ -5,7 +5,8 @@ using System.Text;
 
 namespace Contracts
 {
-    public interface IDigitalOutput : INotifyPropertyChanged, ITag
+    public interface IDigitalOutput : INotifyPropertyChanged, IOutputCommon, ITag
     {
+        double CurrentValue { get; }
     }
 }
