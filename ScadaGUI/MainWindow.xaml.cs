@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Data;
@@ -31,6 +32,7 @@ namespace ScadaGUI
         private readonly DispatcherTimer alarmRefreshTimer;
         private DateTime lastRuntimePersist = DateTime.MinValue;
         private bool persistenceWarningShown;
+        private bool suppressAlarmAudioEvents;
 
         public IAnalogInput TestanalogInput { get; set; }
         public ITag tag { get; set; }
@@ -129,6 +131,67 @@ namespace ScadaGUI
 
             DataContext = this;
             UpdateSelectedTagPanels();
+            InitializeAlarmAudio();
+        }
+
+        // F1: loads the persisted alarm sound + volume, applies them to the
+        // sound service and reflects them in the picker/slider.
+        private void InitializeAlarmAudio()
+        {
+            AlarmSoundCombo.ItemsSource = AlarmSoundService.AvailableSounds;
+
+            string savedSound = PersistenceService.LoadSetting("AlarmSound", out _);
+            if (string.IsNullOrWhiteSpace(savedSound) || !AlarmSoundService.AvailableSounds.Contains(savedSound))
+            {
+                savedSound = AlarmSoundService.AvailableSounds[0];
+            }
+
+            double savedVolume = 80;
+            string savedVolumeText = PersistenceService.LoadSetting("AlarmVolume", out _);
+            if (!string.IsNullOrWhiteSpace(savedVolumeText)
+                && double.TryParse(savedVolumeText, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedVolume))
+            {
+                savedVolume = parsedVolume;
+            }
+
+            AlarmSoundService.Configure(savedSound, savedVolume);
+
+            suppressAlarmAudioEvents = true;
+            AlarmSoundCombo.SelectedItem = savedSound;
+            AlarmVolumeSlider.Value = savedVolume;
+            AlarmVolumeLabel.Text = $"{(int)savedVolume}%";
+            suppressAlarmAudioEvents = false;
+        }
+
+        private void AlarmSound_Changed(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (suppressAlarmAudioEvents)
+            {
+                return;
+            }
+
+            if (AlarmSoundCombo.SelectedItem is string sound)
+            {
+                AlarmSoundService.SetSound(sound);
+                PersistenceService.SaveSetting("AlarmSound", sound, out _);
+                SystemLogger.Log($"Alarm sound set to: {sound}");
+            }
+        }
+
+        private void AlarmVolume_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (AlarmVolumeLabel != null)
+            {
+                AlarmVolumeLabel.Text = $"{(int)e.NewValue}%";
+            }
+
+            if (suppressAlarmAudioEvents)
+            {
+                return;
+            }
+
+            AlarmSoundService.SetVolume(e.NewValue);
+            PersistenceService.SaveSetting("AlarmVolume", ((int)e.NewValue).ToString(CultureInfo.InvariantCulture), out _);
         }
 
         // On startup output tags restore their last written value; push it back

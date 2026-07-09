@@ -41,6 +41,16 @@
                 </WrapPanel>
                 <Button x:Name="ThemeToggleButton" Content="Switch to Dark" Height="30" MinWidth="120"
                         HorizontalAlignment="Left" Margin="0,10,0,0" Click="Button_ToggleTheme"/>
+                <WrapPanel Margin="0,10,0,0">
+                    <TextBlock Text="Alarm sound:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox x:Name="AlarmSoundCombo" Width="110" VerticalAlignment="Center"
+                              SelectionChanged="AlarmSound_Changed"/>
+                    <TextBlock Text="Volume:" VerticalAlignment="Center" Margin="16,0,8,0"/>
+                    <Slider x:Name="AlarmVolumeSlider" Width="140" Minimum="0" Maximum="100"
+                            VerticalAlignment="Center" TickFrequency="10"
+                            ValueChanged="AlarmVolume_Changed"/>
+                    <TextBlock x:Name="AlarmVolumeLabel" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="36"/>
+                </WrapPanel>
             </StackPanel>
 
             <DataGrid Grid.Row="1"

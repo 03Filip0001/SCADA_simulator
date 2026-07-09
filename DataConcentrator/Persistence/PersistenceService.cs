@@ -534,6 +534,62 @@ namespace DataConcentrator.Persistence
             }
         }
 
+        // Generic key/value settings (used for the alarm sound + volume, F1),
+        // stored in the same AppSettings table as the theme.
+        public static string LoadSetting(string key, out string errorMessage)
+        {
+            errorMessage = null;
+
+            try
+            {
+                lock (ContextClass.SyncRoot)
+                {
+                    using (var context = new ContextClass())
+                    {
+                        return context.AppSettings.FirstOrDefault(item => item.Key == key)?.Value;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError($"Failed to load setting '{key}'.", ex);
+                return null;
+            }
+        }
+
+        public static bool SaveSetting(string key, string value, out string errorMessage)
+        {
+            errorMessage = null;
+
+            try
+            {
+                lock (ContextClass.SyncRoot)
+                {
+                    using (var context = new ContextClass())
+                    {
+                        var setting = context.AppSettings.FirstOrDefault(item => item.Key == key);
+                        if (setting == null)
+                        {
+                            setting = new AppSettingEntity { Key = key };
+                            context.AppSettings.Add(setting);
+                        }
+
+                        setting.Value = value;
+                        context.SaveChanges();
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = GetInnermostMessage(ex);
+                SystemLogger.LogError($"Failed to save setting '{key}'.", ex);
+                return false;
+            }
+        }
+
         public static bool SaveAll(IEnumerable<ITag> tags, out string errorMessage)
         {
             errorMessage = null;
