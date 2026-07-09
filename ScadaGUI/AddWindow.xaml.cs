@@ -39,6 +39,7 @@ namespace ScadaGUI
         public string DialogResultName { get; set; }
         public string DialogResultAddress { get; set; }
         public string DialogResultDescription { get; set; }
+        public string DialogResultUnits { get; set; }
         public double DialogResultLowLimit { get; set; }
         public double DialogResultHighLimit { get; set; }
         public string DialogResultAlarmName { get; set; }
@@ -92,6 +93,13 @@ namespace ScadaGUI
                 TextBoxDescription.Text = tagToEdit.Description;
                 panelIO.Visibility = Visibility.Visible;
 
+                if (tagToEdit is IAnalogCommon analogCommon)
+                {
+                    TextBoxUnits.Text = analogCommon.Units;
+                    TextBlockUnits.Visibility = Visibility.Visible;
+                    TextBoxUnits.Visibility = Visibility.Visible;
+                }
+
                 if (tagToEdit is DataConcentrator.Model.AnalogInput analogInput && analogInput.AlarmEnabled)
                 {
                     panelAlarm.Visibility = Visibility.Visible;
@@ -138,6 +146,12 @@ namespace ScadaGUI
                 if (panelAlarm != null) panelAlarm.Visibility = Visibility.Collapsed;
             }
 
+            var unitsVisibility = (item.ToString() == "AI" || item.ToString() == "AO")
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            TextBlockUnits.Visibility = unitsVisibility;
+            TextBoxUnits.Visibility = unitsVisibility;
+
             UpdateCreateButtonState();
         }
 
@@ -174,6 +188,7 @@ namespace ScadaGUI
             this.DialogResultName = textboxName?.Text?.Trim() ?? "";
             this.DialogResultAddress = textboxAddress?.Text?.Trim() ?? "";
             this.DialogResultDescription = textboxDescription?.Text ?? "";
+            this.DialogResultUnits = TextBoxUnits?.Text?.Trim() ?? "";
             this.DialogResultAlarmName = textboxAlarmName?.Text?.Trim() ?? string.Empty;
             this.DialogResultAlarmType = textboxAlarmType?.Text?.Trim() ?? string.Empty;
             this.DialogResultAlarmMessage = textboxAlarmMessage?.Text ?? string.Empty;

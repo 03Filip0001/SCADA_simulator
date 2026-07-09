@@ -97,6 +97,8 @@
     </Compile>
     <Compile Include="ThemeManager.cs" />
     <Compile Include="AlarmSoundService.cs" />
+    <Compile Include="Converters\StringToVisibilityConverter.cs" />
+    <Compile Include="Converters\ValueWithUnitsConverter.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs">

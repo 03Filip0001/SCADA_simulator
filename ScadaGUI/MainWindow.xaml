@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ScadaGUI"
+        xmlns:converters="clr-namespace:ScadaGUI.Converters"
         mc:Ignorable="d"
         Title="SCADA Application" Height="620" Width="1450" MinHeight="560" MinWidth="1200"
         Closing="Window_Closing"
@@ -13,6 +14,8 @@
             <TextBlock Text="{Binding}" FontWeight="SemiBold" FontSize="14"
                        Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"/>
         </DataTemplate>
+        <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+        <converters:ValueWithUnitsConverter x:Key="ValueWithUnitsConverter"/>
     </Window.Resources>
     <Grid Margin="16">
         <Grid.ColumnDefinitions>
@@ -51,7 +54,14 @@
                     <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="100"/>
                     <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="70"/>
                     <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="150"/>
-                    <DataGridTextColumn Header="Current Value" Binding="{Binding CurrentValue, StringFormat='F2'}" Width="100"/>
+                    <DataGridTextColumn Header="Current Value" Width="120">
+                        <DataGridTextColumn.Binding>
+                            <MultiBinding Converter="{StaticResource ValueWithUnitsConverter}">
+                                <Binding Path="CurrentValue"/>
+                                <Binding Path="Units"/>
+                            </MultiBinding>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
                 </DataGrid.Columns>
             </DataGrid>
 
@@ -83,6 +93,8 @@
                     <TextBlock Text="{Binding SelectedTag.Address}" Margin="0,0,0,8"/>
                     <TextBlock Text="Type:" FontWeight="Bold"/>
                     <TextBlock Text="{Binding SelectedTag.Type}" Margin="0,0,0,8"/>
+                    <TextBlock Text="Unit:" FontWeight="Bold" Visibility="{Binding SelectedTag.Units, Converter={StaticResource StringToVisibilityConverter}}"/>
+                    <TextBlock Text="{Binding SelectedTag.Units}" Margin="0,0,0,8" Visibility="{Binding SelectedTag.Units, Converter={StaticResource StringToVisibilityConverter}}"/>
                 </StackPanel>
             </GroupBox>
 
@@ -165,7 +177,7 @@
                             <DataGridTextColumn Header="High" Binding="{Binding HighLimit, StringFormat='F2'}" Width="Auto" MinWidth="50" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
                             <DataGridTextColumn Header="Pri." Binding="{Binding Priority}" Width="Auto" MinWidth="40" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
                             <DataGridTextColumn Header="Time" Binding="{Binding Timestamp, StringFormat='HH:mm:ss'}" Width="Auto" MinWidth="65" ElementStyle="{StaticResource AlarmCellTextStyle}"/>
-                            <DataGridCheckBoxColumn Header="Ack" Binding="{Binding IsAcknowledged}" Width="Auto" MinWidth="45"/>
+                            <DataGridCheckBoxColumn Header="Ack" Binding="{Binding ShowAcknowledged, Mode=OneWay}" Width="Auto" MinWidth="45"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>

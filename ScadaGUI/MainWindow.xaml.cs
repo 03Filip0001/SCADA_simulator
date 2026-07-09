@@ -332,7 +332,7 @@ namespace ScadaGUI
                 return;
             }
 
-            ApplyTagValues(newTag, addwindow.DialogResultName, addwindow.DialogResultAddress, addwindow.DialogResultDescription, tagType);
+            ApplyTagValues(newTag, addwindow.DialogResultName, addwindow.DialogResultAddress, addwindow.DialogResultDescription, addwindow.DialogResultUnits, tagType);
             IOElements.Add(newTag);
             RegisterInputIfNeeded(newTag);
             SaveTag(newTag);
@@ -351,7 +351,7 @@ namespace ScadaGUI
                 _plc.RemoveInput(tagToUpdate);
             }
 
-            ApplyTagValues(tagToUpdate, addwindow.DialogResultName, addwindow.DialogResultAddress, addwindow.DialogResultDescription, tagToUpdate.Type);
+            ApplyTagValues(tagToUpdate, addwindow.DialogResultName, addwindow.DialogResultAddress, addwindow.DialogResultDescription, addwindow.DialogResultUnits, tagToUpdate.Type);
 
             if (addwindow.DialogResultHasAlarmSettings && tagToUpdate is AnalogInput alarmTarget)
             {
@@ -403,12 +403,17 @@ namespace ScadaGUI
             }
         }
 
-        private void ApplyTagValues(ITag tag, string name, string address, string description, Tag_Type tagType)
+        private void ApplyTagValues(ITag tag, string name, string address, string description, string units, Tag_Type tagType)
         {
             tag.Name = name;
             tag.Address = address;
             tag.Description = description ?? string.Empty;
             tag.Type = tagType;
+
+            if (tag is IAnalogCommon analogCommon)
+            {
+                analogCommon.Units = string.IsNullOrWhiteSpace(units) ? analogCommon.Units : units;
+            }
         }
 
         private void RegisterInputIfNeeded(ITag tag)
@@ -611,7 +616,6 @@ namespace ScadaGUI
                     existingAlarm.Priority = displayAlarm.Priority;
                     existingAlarm.Message = displayAlarm.Message;
                     existingAlarm.Timestamp = displayAlarm.Timestamp;
-                    CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
                 }
 
                 var sourceTag = IOElements.OfType<AnalogInput>().FirstOrDefault(tag => tag.Name == displayAlarm.TagName);
@@ -714,7 +718,6 @@ namespace ScadaGUI
                 }
             }
 
-            CollectionViewSource.GetDefaultView(ActiveAlarms).Refresh();
             UpdateAcknowledgeButtonState();
             AlarmSoundService.UpdateState(alarmEnabledInputs.Any(tag => tag.AlarmActive && !tag.AlarmAcknowledged));
             SaveRuntimeStateIfDue();

@@ -38,6 +38,7 @@
                         <RowDefinition/>
                         <RowDefinition/>
                         <RowDefinition/>
+                        <RowDefinition/>
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Column="0" Margin="15" Text="Ime taga: "/>
@@ -48,6 +49,9 @@
 
                     <TextBlock Grid.Row="2" Margin="15" Text="Opis taga: "/>
                     <TextBox Grid.Row="2" Grid.Column="1" Margin="15" Width="200" HorizontalAlignment="Left" x:Name="TextBoxDescription"/>
+
+                    <TextBlock Grid.Row="3" Margin="15" Text="Unit: " x:Name="TextBlockUnits" Visibility="Collapsed"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Margin="15" Width="200" HorizontalAlignment="Left" x:Name="TextBoxUnits" Visibility="Collapsed"/>
 
                 </Grid>
 

@@ -325,30 +325,140 @@ namespace DataConcentrator.Model
         public string Units { get; set; }
     }
 
-    public class AlarmInfo
+    public class AlarmInfo : INotifyPropertyChanged
     {
-        public int Id { get; set; }
-        public string TagName { get; set; }
-        public string Address { get; set; }
-        public double TriggeredValue { get; set; }
-        public double LowLimit { get; set; }
-        public double HighLimit { get; set; }
-        public bool IsAcknowledged { get; set; }
+        private int id;
+        private string tagName;
+        private string address;
+        private double triggeredValue;
+        private double lowLimit;
+        private double highLimit;
+        private bool isAcknowledged;
+        private bool isActive;
+        private bool hasOccurred;
+        private int alarmDefinitionId;
+        private string alarmName;
+        private string alarmType;
+        private int priority;
+        private string message;
+        private DateTime timestamp;
 
-        // Mirrors the source tag's AlarmActive at the time of the last sync, so
-        // the UI can distinguish Active / Acknowledged / Inactive at a glance.
-        public bool IsActive { get; set; }
+        public int Id
+        {
+            get => id;
+            set => SetField(ref id, value);
+        }
 
-        // Mirrors the source tag's AlarmHasOccurred: true once this alarm has
-        // fired at least once, so a returned-to-normal alarm can still be shown
-        // as needing acknowledgment instead of looking like it never happened.
-        public bool HasOccurred { get; set; }
+        public string TagName
+        {
+            get => tagName;
+            set => SetField(ref tagName, value);
+        }
 
-        public int AlarmDefinitionId { get; set; }
-        public string AlarmName { get; set; }
-        public string AlarmType { get; set; }
-        public int Priority { get; set; }
-        public string Message { get; set; }
-        public DateTime Timestamp { get; set; }
+        public string Address
+        {
+            get => address;
+            set => SetField(ref address, value);
+        }
+
+        public double TriggeredValue
+        {
+            get => triggeredValue;
+            set => SetField(ref triggeredValue, value);
+        }
+
+        public double LowLimit
+        {
+            get => lowLimit;
+            set => SetField(ref lowLimit, value);
+        }
+
+        public double HighLimit
+        {
+            get => highLimit;
+            set => SetField(ref highLimit, value);
+        }
+
+        public bool IsAcknowledged
+        {
+            get => isAcknowledged;
+            set
+            {
+                if (SetField(ref isAcknowledged, value))
+                {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowAcknowledged)));
+                }
+            }
+        }
+
+        public bool IsActive
+        {
+            get => isActive;
+            set
+            {
+                if (SetField(ref isActive, value))
+                {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowAcknowledged)));
+                }
+            }
+        }
+
+        public bool ShowAcknowledged => isAcknowledged && isActive;
+
+        public bool HasOccurred
+        {
+            get => hasOccurred;
+            set => SetField(ref hasOccurred, value);
+        }
+
+        public int AlarmDefinitionId
+        {
+            get => alarmDefinitionId;
+            set => SetField(ref alarmDefinitionId, value);
+        }
+
+        public string AlarmName
+        {
+            get => alarmName;
+            set => SetField(ref alarmName, value);
+        }
+
+        public string AlarmType
+        {
+            get => alarmType;
+            set => SetField(ref alarmType, value);
+        }
+
+        public int Priority
+        {
+            get => priority;
+            set => SetField(ref priority, value);
+        }
+
+        public string Message
+        {
+            get => message;
+            set => SetField(ref message, value);
+        }
+
+        public DateTime Timestamp
+        {
+            get => timestamp;
+            set => SetField(ref timestamp, value);
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private bool SetField<T>(ref T field, T value, [System.Runtime.CompilerServices.CallerMemberName] string propertyName = null)
+        {
+            if (EqualityComparer<T>.Default.Equals(field, value))
+            {
+                return false;
+            }
+
+            field = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            return true;
+        }
     }
 }
